@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 import yaml
 import pandas as pd
+import shutil
 
 # Try to import local modules; fall back if not available
 try:
@@ -47,6 +48,11 @@ try:
     import toseeunits
 except Exception:
     toseeunits = None
+
+try:
+    import grid_power_api
+except Exception:
+    grid_power_api = None
 
 
 def safe_get_system_details(system_id):
@@ -331,6 +337,62 @@ def main():
         except Exception as e:
             print(f"Warning: toseeunits.run_tosee_units failed: {e}")
 
+    # 8.5 grid_power_api (optional) - get per-system grid summary CSV or values
+    grid_summary_csv = None
+    peak_power_import_value = None
+    avg_365_days_power = None
+    if grid_power_api is not None:
+        try:
+            # prefer a conventional function if present
+            if hasattr(grid_power_api, 'run_grid_power'):
+                res = grid_power_api.run_grid_power(system_id, start, end, out_dir)
+                if isinstance(res, dict):
+                    grid_summary_csv = res.get('csv') or res.get('grid_summary_csv')
+                elif isinstance(res, str):
+                    grid_summary_csv = res
+            elif hasattr(grid_power_api, 'get_grid_summary'):
+                res = grid_power_api.get_grid_summary(system_id, out_dir)
+                if isinstance(res, dict):
+                    peak_power_import_value = res.get('peak_import_power')
+                    avg_365_days_power = res.get('avg_365_days')
+                    grid_summary_csv = res.get('csv') or res.get('grid_summary_csv')
+            else:
+                # no callable API; assume it wrote grid_summary.csv into out_dir
+                possible = os.path.join(out_dir, 'grid_summary.csv')
+                if os.path.exists(possible):
+                    grid_summary_csv = possible
+
+            # If we got a CSV path, try to read values from it
+            if grid_summary_csv and os.path.exists(grid_summary_csv):
+                try:
+                    import pandas as _pd
+                    gdf = _pd.read_csv(grid_summary_csv)
+                    # try to find row by system_id
+                    row = None
+                    if 'system_id' in gdf.columns:
+                        matched = gdf[gdf['system_id'] == system_id]
+                        if not matched.empty:
+                            row = matched.iloc[0]
+                        else:
+                            row = gdf.iloc[0]
+                    else:
+                        row = gdf.iloc[0]
+
+                    if 'peak_import_power' in row.index and peak_power_import_value is None:
+                        try:
+                            peak_power_import_value = float(row['peak_import_power'])
+                        except Exception:
+                            pass
+                    if 'avg_365_days' in row.index and avg_365_days_power is None:
+                        try:
+                            avg_365_days_power = float(row['avg_365_days'])
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Warning: grid_power_api processing failed: {e}")
+
     # 9. Bill capture (optional)
     bill_text_path = None
     if not args.no_bill and bill_module is not None and ref_number and city:
@@ -353,6 +415,7 @@ def main():
     combined['sun_hours_csv'] = sun_hours_csv
     combined['tosee_daily'] = tosee_daily
     combined['tosee_monthly'] = tosee_monthly
+    combined['grid_summary_csv'] = grid_summary_csv
 
     final_csv = os.path.join(out_dir, f"{system_id}.csv")
     fieldnames = list(combined.keys())
@@ -379,7 +442,9 @@ def main():
         'battery_efficiency': None,
         'sun_hours_per_day': None,
         'location_yield': None,
-        'kwh': None
+        'kwh': None,
+        'peak_power_import_value': None,
+        'avg_365_days_power': None
     }
 
     # 1) import-export summary
@@ -404,6 +469,33 @@ def main():
                 summary['night_peak_import'] = float(row.get('night_peak_import', summary['night_peak_import']) or summary['night_peak_import'])
     except Exception as e:
         print(f"Warning: reading import-export.csv failed: {e}")
+
+    # 1.5) grid summary values (if available)
+    try:
+        if peak_power_import_value is None and grid_summary_csv and os.path.exists(grid_summary_csv):
+            import pandas as _pd
+            gdf = _pd.read_csv(grid_summary_csv)
+            row = None
+            if 'system_id' in gdf.columns:
+                matched = gdf[gdf['system_id'] == system_id]
+                if not matched.empty:
+                    row = matched.iloc[0]
+                else:
+                    row = gdf.iloc[0]
+            else:
+                row = gdf.iloc[0]
+            try:
+                if 'peak_import_power' in row.index:
+                    summary['peak_power_import_value'] = float(row['peak_import_power'])
+            except Exception:
+                pass
+            try:
+                if 'avg_365_days' in row.index:
+                    summary['avg_365_days_power'] = float(row['avg_365_days'])
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"Warning: reading grid_summary.csv failed: {e}")
 
     # 2) sun hours from compilerawdata result or CSV
     try:
@@ -440,7 +532,7 @@ def main():
         if console is None and isinstance(api_data, dict):
             # apiwork may wrap in data.system or data.systemV1
             try:
-                sys_node = api_data.get('data', {}).get('system') or api_work.get('system') or api_data.get('data', {}).get('systemV1')
+                sys_node = api_data.get('data', {}).get('system') or (apiwork.get('system') if apiwork else None) or api_data.get('data', {}).get('systemV1')
                 if isinstance(sys_node, dict):
                     # some APIs include 'system' with 'siteDetails' and 'pv' etc
                     if 'pv' in sys_node:
@@ -457,7 +549,9 @@ def main():
                 pv = console.get('pvProducedToday') or console.get('pvProduced') or postgres.get('pv_produced_last_hour') if isinstance(postgres, dict) else None
             if pv is not None:
                 try:
-                    summary['current_pv'] = float(pv)
+                    # summary['current_pv'] = float(pv)
+                    summary['current_pv_kw'] = float(postgres.get('pv_produced_last_hour'))
+                    summary['current_pv'] = summary['current_pv_kw']
                 except Exception:
                     pass
 
@@ -496,12 +590,20 @@ def main():
     try:
         if isinstance(postgres, dict):
             summary['new_battery_design_year'] = postgres.get('warranty_expiry_date') or postgres.get('deployed_at')
-            # battery DOD and efficiency may not be present; try system_info fields
-            summary['battery_dod'] = postgres.get('battery_discharge_limit')
+            
             # efficiency unknown - leave null unless available
             summary['battery_efficiency'] = None
             # location yield from postgres field average_pv_production_near_by
             summary['location_yield'] = postgres.get('average_pv_production_near_by')
+            ################3
+            summary['new_battery_design_year'] = postgres.get('warranty_expiry_date') or postgres.get('deployed_at')
+            summary['battery_dod'] = 100 - postgres.get('battery_soc')
+            summary['battery_efficiency'] = 0.9
+            summary['location_yield'] = postgres.get('average_pv_production_near_by')
+            summary['current_battery_soc'] = postgres.get('battery_soc')
+            summary['current_battery_power'] = postgres.get('batteries_capacity')
+            summary['current_pv_kw'] = float(postgres.get('pv_produced_last_hour'))
+            summary['current_pv'] = summary['current_pv_kw']
     except Exception:
         pass
 
@@ -536,7 +638,7 @@ def main():
     try:
         summary_csv = os.path.join(out_dir, f"{system_id}_summary.csv")
         # ensure deterministic column order
-        cols = ['system_id','daily_avg_import','daily_peak_import','night_avg_import','night_peak_import','current_pv','current_battery','current_battery_power','current_battery_soc','new_battery_design_year','battery_dod','battery_efficiency','sun_hours_per_day','location_yield','kwh']
+        cols = ['system_id','daily_avg_import','daily_peak_import','night_avg_import','night_peak_import','current_pv','current_battery','current_battery_power','current_battery_soc','new_battery_design_year','battery_dod','battery_efficiency','sun_hours_per_day','location_yield']
         with open(summary_csv, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=cols)
             writer.writeheader()
@@ -544,6 +646,65 @@ def main():
         print(f"Summary CSV written: {summary_csv}")
     except Exception as e:
         print(f"Warning: writing summary CSV failed: {e}")
+
+    # move CSVs except summary into saved folder
+    try:
+        import glob
+        saved_folder = os.path.join(out_dir, f"{system_id}_saved_csvs")
+        os.makedirs(saved_folder, exist_ok=True)
+
+        # move all CSVs in out_dir except the summary_csv
+        for p in glob.glob(os.path.join(out_dir, "*.csv")):
+            try:
+                if os.path.abspath(p) == os.path.abspath(summary_csv):
+                    continue
+                shutil.move(p, saved_folder)
+            except Exception:
+                # ignore individual move failures
+                pass
+
+        # also move tracked csv paths that may be outside out_dir
+        tracked = [
+            final_csv,
+            combined.get('raw_energy_csv'),
+            combined.get('daily_energy_csv'),
+            combined.get('monthly_from_raw'),
+            combined.get('sun_hours_csv'),
+            combined.get('tosee_daily'),
+            combined.get('tosee_monthly'),
+            grid_summary_csv,
+            bms_csv,
+            load_csv
+        ]
+        for tp in tracked:
+            try:
+                if tp and isinstance(tp, str) and os.path.exists(tp):
+                    # skip summary CSV explicitly
+                    if os.path.abspath(tp) == os.path.abspath(summary_csv):
+                        continue
+                    dest = os.path.join(saved_folder, os.path.basename(tp))
+                    # if already in saved_folder skip
+                    if os.path.abspath(os.path.dirname(tp)) == os.path.abspath(saved_folder):
+                        continue
+                    shutil.move(tp, dest)
+            except Exception:
+                pass
+
+        print(f"Moved CSV files (except summary) into: {saved_folder}")
+    except Exception as e:
+        print(f"Warning: cleaning up CSVs failed: {e}")
+
+    try:
+        # delete legacy folder named '_saved_ones' if present
+        saved_ones = os.path.join(out_dir, '_saved_ones')
+        if os.path.exists(saved_ones) and os.path.isdir(saved_ones):
+            try:
+                shutil.rmtree(saved_ones)
+                print(f"Deleted legacy folder: {saved_ones}")
+            except Exception as e:
+                print(f"Warning: failed to delete {saved_ones}: {e}")
+    except Exception:
+        pass    
 
 
 if __name__ == '__main__':
