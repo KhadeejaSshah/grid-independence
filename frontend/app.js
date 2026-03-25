@@ -31,13 +31,6 @@ function setDialValue(pct) {
     dialKnob.setAttribute('cy', cy);
 
     document.getElementById('currentTarget').textContent = pct;
-
-    // Color shift from blue → green at higher targets
-    const hue = 210 + (ratio * 40); // blue to teal
-    const color = `hsl(${hue}, 80%, 55%)`;
-    dialFill.style.stroke = color;
-    dialKnob.style.fill = color;
-    document.querySelector('.dial-center-value').style.color = color;
 }
 
 // Initialize dial at 100%

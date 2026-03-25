@@ -10,7 +10,16 @@ import database
 import psycopg2.extras
 import recommendation_engine
 
-app = FastAPI()
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    yield
+    # Shutdown
+    database.close_db_pool()
+
+app = FastAPI(lifespan=lifespan)
 
 # Mount frontend directory for static files
 if not os.path.exists("frontend"):
@@ -91,10 +100,6 @@ def get_recommendation(request: RecommendationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.on_event("shutdown")
-def shutdown_event():
-    database.close_db_pool()
-
 if __name__ == "__main__":
     print("Starting Grid Independence Recommendation Service...")
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -59,12 +59,18 @@
                     <div class="dial-container">
                         <h3>Target Grid Independence</h3>
                         <div class="dial-wrapper">
-                            <svg class="dial-svg" viewBox="0 0 200 120" width="250" height="150">
+                            <svg class="dial-svg" viewBox="0 0 200 120" width="260" height="155">
+                                <defs>
+                                    <linearGradient id="dialGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" stop-color="#6366f1" />
+                                        <stop offset="100%" stop-color="#22d3ee" />
+                                    </linearGradient>
+                                </defs>
                                 <path class="dial-track" d="M 20 100 A 80 80 0 0 1 180 100" fill="none"
-                                    stroke-width="12" stroke-linecap="round" />
+                                    stroke-width="10" stroke-linecap="round" />
                                 <path class="dial-fill" id="dialFill" d="M 20 100 A 80 80 0 0 1 180 100" fill="none"
-                                    stroke-width="12" stroke-linecap="round" />
-                                <circle class="dial-knob" id="dialKnob" cx="180" cy="100" r="8" />
+                                    stroke-width="10" stroke-linecap="round" />
+                                <circle class="dial-knob" id="dialKnob" cx="180" cy="100" r="7" />
                             </svg>
                             <div class="dial-center-value">
                                 <span id="currentTarget">100</span><span class="pct">%</span>
