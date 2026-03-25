@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+psycopg2-binary
+PyYAML
+playwright
+llama_parse
+google-generativeai
+python-dotenv
+cassandra-driver
