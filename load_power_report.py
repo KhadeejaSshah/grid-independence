@@ -1,107 +1,93 @@
-
-import argparse
 import csv
 import json
-import sys
 from datetime import datetime
-import math
-
-try:
-    from cassandra.cluster import Cluster
-    from cassandra.auth import PlainTextAuthProvider
-    from cassandra.query import SimpleStatement
-    from cassandra.cluster import NoHostAvailable
-except Exception:
-    print("Error: cassandra-driver is required. Install with: pip install cassandra-driver")
-    sys.exit(1)
-
+import requests
 import yaml
+from pathlib import Path
+import os
 
-def read_config():
-    try:
-        with open("conf.yaml", "r") as f:
-            cfg = yaml.safe_load(f)
-    except Exception:
-        cfg = {}
-    sc = cfg.get("scylla", {})
-    host = sc.get("host", "127.0.0.1")
-    if host == "localhost":
-        host = "127.0.0.1"
-    return {
-        "hosts": [host] if isinstance(host, str) else host,
-        "port": sc.get("port", 5533),
-        "username": sc.get("username"),
-        "password": sc.get("password"),
-        "keyspace": sc.get("keyspace"),
-        "try_for_times": int(sc.get("try_for_times", 5)),
+# -------- CONFIG --------
+CONFIG_PATH = Path(__file__).resolve().parent / "conf.yaml"
+try:
+    with open(CONFIG_PATH, "r") as f:
+        config = yaml.safe_load(f) or {}
+    giles = config.get("giles", {})
+    apiwork_cfg = giles.get("apiwork", {})
+    API_URL = apiwork_cfg.get("url") or os.getenv("GILES_API_URL")
+    TOKEN = apiwork_cfg.get("token") or os.getenv("GILES_API_TOKEN")
+    with open("conf.yaml", "r") as f:
+        config = yaml.safe_load(f)
+
+    defaults = config.get("defaults", {})
+
+    SYSTEM_ID = defaults.get("system_id")
+    START_DATE = defaults.get("start_date")
+    END_DATE = defaults.get("end_date")
+except Exception as e:
+    print(f"Warning: could not load conf.yaml: {e}")
+    API_URL = os.getenv("GILES_API_URL")
+    TOKEN = os.getenv("GILES_API_TOKEN")
+    SYSTEM_ID = None
+    START_DATE = "2025-01-01"
+    END_DATE = None
+
+
+# -------- FETCH LOAD DATA FROM API --------
+def fetch_load_data(system_id, start_ts, end_ts):
+    headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+    payload = {
+        "operationName": "getStatsQuery",
+        "variables": {
+            "systemId": system_id,
+            "startTimeStamp": start_ts,
+            "endTimeStamp": end_ts
+        },
+        "query": """
+query getStatsQuery($endTimeStamp: Int!, $startTimeStamp: Int!, $systemId: String) {
+  LoadStatsApp(
+    startTimestamp: $startTimeStamp
+    endTimestamp: $endTimeStamp
+    systemId: $systemId
+  ) {
+    interval
+    values {
+      power
+      time
+      __typename
     }
-
-def connect_scylla(conf):
-    auth = None
-    if conf["username"] and conf["password"]:
-        auth = PlainTextAuthProvider(username=conf["username"], password=conf["password"]) 
-
-    cluster = None
-    session = None
-    last_exc = None
-    for attempt in range(1, conf["try_for_times"] + 1):
-        try:
-            cluster = Cluster(contact_points=conf["hosts"], port=conf["port"], auth_provider=auth, connect_timeout=30)
-            session = cluster.connect(keyspace=conf.get("keyspace"))
-            return cluster, session
-        except NoHostAvailable as e:
-            last_exc = e
-            print(f"NoHostAvailable (attempt {attempt}/{conf['try_for_times']}): {getattr(e,'errors', None)}")
-        except Exception as e:
-            last_exc = e
-            print(f"Connection failed (attempt {attempt}/{conf['try_for_times']}): {e}")
-    raise RuntimeError(f"Failed to connect to Scylla: {last_exc}")
-
-def query_load_combined(session, system_id, start_date):
-    cql = f"""
-SELECT day, sum, count
-FROM load_combined_1d
-WHERE system_id = {system_id} AND day > '{start_date}';
+    __typename
+  }
+}
 """
-    stmt = SimpleStatement(cql)
-    rows = session.execute(stmt)
+    }
+    resp = requests.post(API_URL, json=payload, headers=headers)
+    if resp.status_code != 200:
+        raise RuntimeError(f"API Error {resp.status_code}: {resp.text}")
+    data = resp.json()
+    values = data.get("data", {}).get("LoadStatsApp", {}).get("values", [])
     results = []
-    for r in rows:
-        try:
-            row = r._asdict()
-        except Exception:
-            try:
-                row = dict(r)
-            except Exception:
-                row = r
-        s = row.get("sum")
-        c = row.get("count")
-        if s is None or c in (None, 0):
-            continue
-        val = float(s) / float(c)
-        day = row.get("day")
-        if isinstance(day, str):
-            try:
-                day = datetime.strptime(day, "%Y-%m-%d").date()
-            except Exception:
-                day = None
-        results.append({"day": day, "value": val})
+    for v in values:
+        ts = v.get("time")
+        power = v.get("power")
+        if ts and power is not None:
+            dt = datetime.fromtimestamp(ts / 1000.0)
+            results.append({"day": dt.date(), "value": float(power)})
     return results
 
+
+# -------- ANALYZE AND WRITE CSV --------
 def analyze_and_write(system_id, rows, out_csv):
     if not rows:
-        print("No data returned from Scylla for given system_id and date range.")
+        print("No load data returned for given system_id and date range.")
         return
 
     yearly = {}
     monthly = {}
-    summer_months = {6,7,8}
-    winter_months = {12,1,2}
+    summer_months = {6, 7, 8}
+    winter_months = {12, 1, 2}
 
     for r in rows:
         day = r["day"]
-        if not day:
-            continue
         val = r["value"]
         year = day.year
         ym = f"{day.year}-{day.month:02d}"
@@ -111,8 +97,8 @@ def analyze_and_write(system_id, rows, out_csv):
     yearly_peaks = {y: max(vals) for y, vals in yearly.items() if vals}
     monthly_peaks = {m: max(vals) for m, vals in monthly.items() if vals}
 
-    summer_vals = [v for r in rows if r["day"] and r["day"].month in summer_months for v in [r["value"]]]
-    winter_vals = [v for r in rows if r["day"] and r["day"].month in winter_months for v in [r["value"]]]
+    summer_vals = [v for r in rows if r["day"].month in summer_months for v in [r["value"]]]
+    winter_vals = [v for r in rows if r["day"].month in winter_months for v in [r["value"]]]
 
     summer_peak = max(summer_vals) if summer_vals else None
     winter_peak = max(winter_vals) if winter_vals else None
@@ -128,21 +114,8 @@ def analyze_and_write(system_id, rows, out_csv):
     overall_yearly_peak = max(yearly_peaks.values()) if yearly_peaks else None
     overall_monthly_peak = max(monthly_peaks.values()) if monthly_peaks else None
 
-    fieldnames = [
-        "system_id",
-        "start_date",
-        "end_date",
-        "overall_yearly_peak",
-        "overall_monthly_peak",
-        "summer_peak",
-        "winter_peak",
-        "growth_factor",
-        "yearly_peaks",
-        "monthly_peaks",
-    ]
-
-    start = min(r["day"] for r in rows if r["day"])
-    end = max(r["day"] for r in rows if r["day"])
+    start = min(r["day"] for r in rows)
+    end = max(r["day"] for r in rows)
 
     row = {
         "system_id": system_id,
@@ -157,30 +130,38 @@ def analyze_and_write(system_id, rows, out_csv):
         "monthly_peaks": json.dumps(monthly_peaks),
     }
 
+    fieldnames = list(row.keys())
     with open(out_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerow(row)
     print(f"Wrote summary to {out_csv}")
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--system-id", required=True)
-    parser.add_argument("--start", default="2024-01-01")
-    parser.add_argument("--out", default="load-power.csv")
-    args = parser.parse_args()
+    # peak + 365-day avg CSV
+    peak_val = max(r["value"] for r in rows)
+    avg_val = sum(r["value"] for r in rows) / len(rows)
+    with open("load_peak_avg.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["peak_power", "avg_power"])
+        writer.writeheader()
+        writer.writerow({"peak_power": peak_val, "avg_power": avg_val})
+    print("Wrote peak+average CSV to load_peak_avg.csv")
 
-    conf = read_config()
-    cluster, session = None, None
-    try:
-        cluster, session = connect_scylla(conf)
-        rows = query_load_combined(session, args.system_id, args.start)
-        analyze_and_write(args.system_id, rows, args.out)
-    finally:
-        if session:
-            session.shutdown()
-        if cluster:
-            cluster.shutdown()
+
+# -------- MAIN --------
+def main():
+    if not SYSTEM_ID:
+        print("Error: system_id not set in conf.yaml")
+        return
+
+    start_date = datetime.fromisoformat(START_DATE)
+    end_date = datetime.fromisoformat(END_DATE) if END_DATE else datetime.today()
+
+    start_ts = int(start_date.timestamp() * 1000)
+    end_ts = int(end_date.timestamp() * 1000)
+
+    rows = fetch_load_data(SYSTEM_ID, start_ts, end_ts)
+    analyze_and_write(SYSTEM_ID, rows, "load-power.csv")
+
 
 if __name__ == "__main__":
     main()
