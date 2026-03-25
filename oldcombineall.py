@@ -19,10 +19,10 @@ try:
 except Exception:
     query_system = None
 
-try:
-    import bms_soc
-except Exception:
-    bms_soc = None
+# try:
+#     # import bms_soc
+# except Exception:
+#     bms_soc = None
 
 try:
     import load_power_report
@@ -93,33 +93,9 @@ def safe_query_scylla_energy(system_id, limit=100):
 
 
 def safe_bms_soc_summary(system_id, start_date, out_path):
-    if bms_soc is None:
-        print("Warning: bms_soc module not available. Skipping BMS SOC summary.")
-        return None
-    try:
-        conf = bms_soc.read_config()
-        cluster, session = None, None
-        try:
-            cluster, session = bms_soc.connect_scylla(conf)
-            rows = bms_soc.query_bms_soc(session, system_id, start_date)
-            # write to a temporary CSV with system id name
-            bms_out = out_path
-            bms_soc.analyze_and_write(system_id, rows, bms_out)
-            return bms_out
-        finally:
-            try:
-                if session:
-                    session.shutdown()
-            except Exception:
-                pass
-            try:
-                if cluster:
-                    cluster.shutdown()
-            except Exception:
-                pass
-    except Exception as e:
-        print(f"Warning: BMS SOC processing failed: {e}")
-        return None
+    # bms_soc integration disabled; return None as stub
+    print("Note: bms_soc integration is disabled in this build.")
+    return None
 
 
 def safe_load_power_summary(system_id, start_date, out_path):
@@ -291,8 +267,9 @@ def main():
     scylla_energy_rows = safe_query_scylla_energy(system_id, limit=500)
 
     # 4. BMS SOC
-    bms_out = os.path.join(out_dir, f"{system_id}_bms_soc_summary.csv")
-    bms_csv = safe_bms_soc_summary(system_id, start, bms_out)
+    # bms_soc call disabled; skip and set bms_csv to None
+    bms_out = None
+    bms_csv = None
 
     # 5. Load power
     load_out = os.path.join(out_dir, f"{system_id}_load_power_summary.csv")
@@ -648,7 +625,7 @@ def main():
             ################3
             summary['new_battery_design_year'] = postgres.get('warranty_expiry_date') or postgres.get('deployed_at')
             summary['battery_dod'] = 100 - postgres.get('battery_soc')
-            summary['battery_efficiency'] = 0.9
+            summary['battery_efficiency'] = 0.6
             summary['location_yield'] = postgres.get('average_pv_production_near_by')
             summary['current_battery_soc'] = postgres.get('battery_soc')
             summary['current_battery_power'] = postgres.get('batteries_capacity')
