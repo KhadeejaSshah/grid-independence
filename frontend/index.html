@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Independence AI Recommender</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <span class="icon">⚡</span>
+                <h1>Grid Independence <span class="accent">AI</span></h1>
+            </div>
+            <div class="search-container">
+                <input type="text" id="systemSearch" placeholder="Search by Name, ID, Customer, or Location...">
+                <div id="searchResults" class="search-results hidden"></div>
+            </div>
+        </header>
+
+        <main>
+            <section id="systemOverview" class="hidden">
+                <div class="section-header">
+                    <h2>System Overview</h2>
+                    <p id="systemMeta">Loading...</p>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="label">PV Capacity</span>
+                        <span class="value" id="pvCap">-</span>
+                        <span class="unit">kW</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="label">Battery Storage</span>
+                        <span class="value" id="batCap">-</span>
+                        <span class="unit">kWh</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="label">Inverter</span>
+                        <span class="value compact" id="invModel">-</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="label">Daily Avg Import</span>
+                        <span class="value" id="dailyImport">-</span>
+                        <span class="unit">kWh</span>
+                    </div>
+                </div>
+            </section>
+
+            <section id="analysisSection" class="hidden">
+                <div class="analysis-layout">
+                    <div class="dial-container">
+                        <h3>Target Grid Independence</h3>
+                        <div class="dial-wrapper">
+                            <svg class="dial-svg" viewBox="0 0 200 120" width="250" height="150">
+                                <path class="dial-track" d="M 20 100 A 80 80 0 0 1 180 100" fill="none"
+                                    stroke-width="12" stroke-linecap="round" />
+                                <path class="dial-fill" id="dialFill" d="M 20 100 A 80 80 0 0 1 180 100" fill="none"
+                                    stroke-width="12" stroke-linecap="round" />
+                                <circle class="dial-knob" id="dialKnob" cx="180" cy="100" r="8" />
+                            </svg>
+                            <div class="dial-center-value">
+                                <span id="currentTarget">100</span><span class="pct">%</span>
+                            </div>
+                        </div>
+                        <div class="dial-labels">
+                            <div class="dial-label" data-value="25">25%</div>
+                            <div class="dial-label" data-value="50">50%</div>
+                            <div class="dial-label" data-value="75">75%</div>
+                            <div class="dial-label active" data-value="100">100%</div>
+                        </div>
+                        <button id="runAnalysis" class="btn-primary">
+                            <span class="btn-icon">🤖</span> Run AI Analysis
+                        </button>
+                    </div>
+
+                    <div id="resultsContainer" class="results-container hidden">
+                        <!-- Grid Independence Bar -->
+                        <div class="gi-bar-section">
+                            <h3>Grid Independence</h3>
+                            <div class="gi-comparison">
+                                <div class="gi-item">
+                                    <span class="gi-label">Current</span>
+                                    <div class="gi-bar-track">
+                                        <div class="gi-bar-fill current" id="giCurrentBar" style="width:0%"></div>
+                                    </div>
+                                    <span class="gi-value" id="giCurrentVal">0%</span>
+                                </div>
+                                <div class="gi-item">
+                                    <span class="gi-label">Projected</span>
+                                    <div class="gi-bar-track">
+                                        <div class="gi-bar-fill projected" id="giProjectedBar" style="width:0%"></div>
+                                    </div>
+                                    <span class="gi-value projected" id="giProjectedVal">0%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Before / After Cards -->
+                        <div class="rec-cards-grid">
+                            <div class="rec-card" id="recSolar">
+                                <div class="rec-header">
+                                    <span class="rec-icon">☀️</span>
+                                    <h4>Solar</h4>
+                                    <span class="status-badge" id="solarBadge">-</span>
+                                </div>
+                                <div class="rec-action" id="solarAction">-</div>
+                                <div class="before-after">
+                                    <div class="ba-col">
+                                        <span class="ba-label">Current</span>
+                                        <span class="ba-value" id="solarCurrent">-</span>
+                                        <span class="ba-unit">kW</span>
+                                    </div>
+                                    <span class="ba-arrow">→</span>
+                                    <div class="ba-col">
+                                        <span class="ba-label">Recommended</span>
+                                        <span class="ba-value highlight" id="solarRec">-</span>
+                                        <span class="ba-unit">kW</span>
+                                    </div>
+                                </div>
+                                <div class="rec-stat-row">
+                                    <span class="stat-label">Daily Gain</span>
+                                    <span class="stat-value green" id="solarGain">-</span>
+                                </div>
+                            </div>
+
+                            <div class="rec-card" id="recBattery">
+                                <div class="rec-header">
+                                    <span class="rec-icon">🔋</span>
+                                    <h4>Battery</h4>
+                                    <span class="status-badge" id="batteryBadge">-</span>
+                                </div>
+                                <div class="rec-action" id="batteryAction">-</div>
+                                <div class="before-after">
+                                    <div class="ba-col">
+                                        <span class="ba-label">Current</span>
+                                        <span class="ba-value" id="batCurrent">-</span>
+                                        <span class="ba-unit">kWh</span>
+                                    </div>
+                                    <span class="ba-arrow">→</span>
+                                    <div class="ba-col">
+                                        <span class="ba-label">Recommended</span>
+                                        <span class="ba-value highlight" id="batRec">-</span>
+                                        <span class="ba-unit">kWh</span>
+                                    </div>
+                                </div>
+                                <div class="rec-stat-row">
+                                    <span class="stat-label">Backup Gain</span>
+                                    <span class="stat-value green" id="batGain">-</span>
+                                </div>
+                            </div>
+
+                            <div class="rec-card" id="recInverter">
+                                <div class="rec-header">
+                                    <span class="rec-icon">⚙️</span>
+                                    <h4>Inverter</h4>
+                                    <span class="status-badge" id="inverterBadge">-</span>
+                                </div>
+                                <div class="rec-action" id="inverterAction">-</div>
+                                <div class="before-after">
+                                    <div class="ba-col">
+                                        <span class="ba-label">Current</span>
+                                        <span class="ba-value" id="invCurrent">-</span>
+                                        <span class="ba-unit">kW</span>
+                                    </div>
+                                    <span class="ba-arrow">→</span>
+                                    <div class="ba-col">
+                                        <span class="ba-label">Recommended</span>
+                                        <span class="ba-value highlight" id="invRec">-</span>
+                                        <span class="ba-unit">kW</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grid Impact -->
+                        <div class="grid-impact-section">
+                            <h4>Grid Import Impact</h4>
+                            <div class="impact-grid">
+                                <div class="impact-item">
+                                    <span class="impact-label">Daily Import</span>
+                                    <div class="impact-values">
+                                        <span class="impact-before" id="impDailyBefore">-</span>
+                                        <span class="impact-arrow">→</span>
+                                        <span class="impact-after" id="impDailyAfter">-</span>
+                                    </div>
+                                </div>
+                                <div class="impact-item">
+                                    <span class="impact-label">Night Import</span>
+                                    <div class="impact-values">
+                                        <span class="impact-before" id="impNightBefore">-</span>
+                                        <span class="impact-arrow">→</span>
+                                        <span class="impact-after" id="impNightAfter">-</span>
+                                    </div>
+                                </div>
+                                <div class="impact-item highlight-stat">
+                                    <span class="impact-label">Annual Savings</span>
+                                    <span class="impact-big green" id="impAnnual">- kWh</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="summary-box">
+                            <h4>Overall Summary</h4>
+                            <p id="aiSummary">...</p>
+                        </div>
+
+                        <!-- Download -->
+                        <button id="downloadReport" class="btn-download">
+                            <span>📄</span> Download Report
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <div id="welcomeScreen" class="welcome-screen">
+                <div class="welcome-content">
+                    <span class="welcome-icon">🔍</span>
+                    <h2>Select a System to Begin</h2>
+                    <p>Use the search bar above to look up a system by Name, ID, or Customer.</p>
+                </div>
+            </div>
+
+            <div id="loadingOverlay" class="loading-overlay hidden">
+                <div class="loader"></div>
+                <p id="loadingText">Analyzing System Data...</p>
+            </div>
+        </main>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

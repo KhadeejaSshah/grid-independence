@@ -454,7 +454,7 @@ def main():
             if 'pv' in console and isinstance(console['pv'], dict):
                 pv = console['pv'].get('pvProducedToday') or console['pv'].get('power') or console.get('pvProducedToday')
             if pv is None:
-                pv = console.get('pvProducedToday') or console.get('pvProduced') or postgres.get('pv_produced_last_hour') if isinstance(postgres, dict) else None
+                pv = console.get('pvProducedToday') or console.get('pvProduced') or postgres.get('current_pv_kw') if isinstance(postgres, dict) else None
             if pv is not None:
                 try:
                     summary['current_pv'] = float(pv)
