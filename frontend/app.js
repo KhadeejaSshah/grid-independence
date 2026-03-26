@@ -3,6 +3,7 @@ let currentSystemName = '';
 let targetIndependence = 100;
 let lastRecommendation = null;
 let lastSystemData = null;
+let analysisHasRun = false;
 
 // UI Elements
 const searchInput = document.getElementById('systemSearch');
@@ -13,18 +14,19 @@ const analysisSection = document.getElementById('analysisSection');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const loadingText = document.getElementById('loadingText');
 
-// ─── DIAL ANIMATION ───
+// ─── DIAL SYSTEM ───
 const dialFill = document.getElementById('dialFill');
 const dialKnob = document.getElementById('dialKnob');
-const ARC_LENGTH = 251.3; // approximate length of the SVG arc
+const dialSvg = document.querySelector('.dial-svg');
+const ARC_LENGTH = 251.3;
+const TIER_DETENTS = [25, 50, 75, 100];
 
 function setDialValue(pct) {
     const ratio = pct / 100;
     const offset = ARC_LENGTH * (1 - ratio);
     dialFill.style.strokeDashoffset = offset;
 
-    // Compute knob position along the arc (180° arc from left to right)
-    const angle = Math.PI * (1 - ratio); // π to 0
+    const angle = Math.PI * (1 - ratio);
     const cx = 100 + 80 * Math.cos(angle);
     const cy = 100 - 80 * Math.sin(angle);
     dialKnob.setAttribute('cx', cx);
@@ -33,22 +35,109 @@ function setDialValue(pct) {
     document.getElementById('currentTarget').textContent = pct;
 }
 
-// Initialize dial at 100%
-setDialValue(100);
+function snapToTier(pct) {
+    // Snap to closest detent
+    let closest = TIER_DETENTS[0];
+    let minDist = Infinity;
+    for (const d of TIER_DETENTS) {
+        const dist = Math.abs(pct - d);
+        if (dist < minDist) { minDist = dist; closest = d; }
+    }
+    return closest;
+}
 
-// Dial label click
+function selectTier(value) {
+    targetIndependence = value;
+    setDialValue(value);
+    document.querySelectorAll('.dial-label').forEach(l => {
+        l.classList.toggle('active', parseInt(l.dataset.value) === value);
+    });
+    if (analysisHasRun && lastRecommendation) {
+        renderRecommendations(lastRecommendation);
+    }
+}
+
+// Initialize
+setDialValue(100);
+updateDialLabelsState();
+
+function updateDialLabelsState() {
+    document.querySelectorAll('.dial-label').forEach(l => {
+        l.classList.toggle('disabled', !analysisHasRun);
+    });
+}
+
+// Label clicks — only work after analysis
 document.querySelectorAll('.dial-label').forEach(label => {
     label.addEventListener('click', () => {
-        document.querySelectorAll('.dial-label').forEach(l => l.classList.remove('active'));
-        label.classList.add('active');
-        targetIndependence = parseInt(label.dataset.value);
-        setDialValue(targetIndependence);
-        // Re-render with cached recommendation data for the new tier
-        if (lastRecommendation) {
-            renderRecommendations(lastRecommendation);
-        }
+        if (!analysisHasRun) return;
+        selectTier(parseInt(label.dataset.value));
     });
 });
+
+// ─── DRAGGABLE DIAL ───
+(function initDraggableDial() {
+    let isDragging = false;
+
+    function getAngleFromEvent(e) {
+        const rect = dialSvg.getBoundingClientRect();
+        // Center of arc in screen coords (SVG viewBox 0 0 200 120, center at 100,100)
+        const scaleX = rect.width / 200;
+        const scaleY = rect.height / 120;
+        const centerX = rect.left + 100 * scaleX;
+        const centerY = rect.top + 100 * scaleY;
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const dx = clientX - centerX;
+        const dy = centerY - clientY; // inverted Y
+        let angle = Math.atan2(dy, dx); // radians
+        // Clamp to 0..π (the arc range)
+        if (angle < 0) angle = 0;
+        if (angle > Math.PI) angle = Math.PI;
+        // Convert: angle π=0%, angle 0=100%
+        return Math.round((1 - angle / Math.PI) * 100);
+    }
+
+    function onMove(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        const raw = getAngleFromEvent(e);
+        const snapped = snapToTier(raw);
+        setDialValue(raw); // smooth follow
+        // Update label highlight to nearest
+        document.querySelectorAll('.dial-label').forEach(l => {
+            l.classList.toggle('active', parseInt(l.dataset.value) === snapped);
+        });
+    }
+
+    function onEnd(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.style.userSelect = '';
+        const raw = getAngleFromEvent(e.changedTouches ? e.changedTouches[0] : e);
+        const snapped = snapToTier(raw);
+        selectTier(snapped);
+    }
+
+    dialSvg.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        document.body.style.userSelect = 'none';
+        onMove(e);
+    });
+    dialSvg.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        onMove(e);
+    }, { passive: false });
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchend', onEnd);
+
+    // Click on arc to jump
+    dialSvg.style.cursor = 'pointer';
+})();
 
 // ─── SEARCH ───
 let searchTimeout;
@@ -98,6 +187,10 @@ async function selectSystem(id, name) {
         systemOverview.classList.remove('hidden');
         analysisSection.classList.remove('hidden');
         document.getElementById('resultsContainer').classList.add('hidden');
+        // Reset analysis state for new system
+        analysisHasRun = false;
+        lastRecommendation = null;
+        updateDialLabelsState();
     } catch (err) {
         alert("Error: " + err.message);
     } finally {
@@ -138,6 +231,8 @@ document.getElementById('runAnalysis').addEventListener('click', async () => {
             body: JSON.stringify({ system_id: currentSystemId, target_independence: targetIndependence })
         });
         lastRecommendation = await resp.json();
+        analysisHasRun = true;
+        updateDialLabelsState();
         renderRecommendations(lastRecommendation);
     } catch (err) {
         alert("Recommendation failed: " + err.message);
@@ -166,15 +261,15 @@ function renderRecommendations(res) {
         : (res.projected_grid_independence || 0);
     animateBar('giCurrentBar', giCurrent);
     animateBar('giProjectedBar', giProjected);
-    document.getElementById('giCurrentVal').textContent = `${Math.round(giCurrent)}%`;
-    document.getElementById('giProjectedVal').textContent = `${Math.round(giProjected)}%`;
+    animateCountUp('giCurrentVal', giCurrent, '%', 0);
+    animateCountUp('giProjectedVal', giProjected, '%', 0);
 
     // Solar Card — use tier-scaled values
     const s = res.solar || {};
     setBadge('solarBadge', tierSolar.status || s.status);
     document.getElementById('solarAction').textContent = tierSolar.action || s.action || '-';
     document.getElementById('solarCurrent').textContent = fmt(s.current_kw);
-    document.getElementById('solarRec').textContent = fmt(tierSolar.recommended_kw || s.recommended_kw_100);
+    animateCountUp('solarRec', tierSolar.recommended_kw || s.recommended_kw_100, '', 2);
     document.getElementById('solarGain').textContent = tierSolar.production_gain_kwh != null ? `+${fmt(tierSolar.production_gain_kwh)} kWh/day` : '-';
 
     // Battery Card — use tier-scaled values
@@ -182,7 +277,7 @@ function renderRecommendations(res) {
     setBadge('batteryBadge', tierBatt.status || b.status);
     document.getElementById('batteryAction').textContent = tierBatt.action || b.action || '-';
     document.getElementById('batCurrent').textContent = fmt(b.current_kwh);
-    document.getElementById('batRec').textContent = fmt(tierBatt.recommended_kwh || b.recommended_kwh_100);
+    animateCountUp('batRec', tierBatt.recommended_kwh || b.recommended_kwh_100, '', 2);
     document.getElementById('batGain').textContent = tierBatt.backup_hours_gain != null ? `+${fmt(tierBatt.backup_hours_gain)} hrs` : '-';
 
     // Inverter Card — use tier-scaled values
@@ -190,7 +285,7 @@ function renderRecommendations(res) {
     setBadge('inverterBadge', tierInv.status || inv.status);
     document.getElementById('inverterAction').textContent = tierInv.action || inv.action || '-';
     document.getElementById('invCurrent').textContent = fmt(inv.current_kw);
-    document.getElementById('invRec').textContent = fmt(tierInv.recommended_kw || inv.recommended_kw_100);
+    animateCountUp('invRec', tierInv.recommended_kw || inv.recommended_kw_100, '', 2);
 
     // Grid Impact — use tier-scaled values
     const gi = res.grid_impact || {};
@@ -198,11 +293,15 @@ function renderRecommendations(res) {
     document.getElementById('impDailyAfter').textContent = `${fmt(tierGrid.projected_daily_import_kwh != null ? tierGrid.projected_daily_import_kwh : gi.projected_daily_import_kwh)} kWh`;
     document.getElementById('impNightBefore').textContent = `${fmt(gi.current_night_import_kwh)} kWh`;
     document.getElementById('impNightAfter').textContent = `${fmt(tierGrid.projected_night_import_kwh != null ? tierGrid.projected_night_import_kwh : gi.projected_night_import_kwh)} kWh`;
-    document.getElementById('impAnnual').textContent = tierGrid.annual_savings_kwh != null ? `${fmt(tierGrid.annual_savings_kwh)} kWh` : '-';
+    animateCountUp('impAnnual', tierGrid.annual_savings_kwh, ' kWh', 0);
+    animateCountUp('impMonthlyPKR', tierGrid.monthly_savings_pkr, ' PKR', 0, true);
+    animateCountUp('impAnnualPKR', tierGrid.annual_savings_pkr, ' PKR', 0, true);
 
     // Summary
     document.getElementById('aiSummary').textContent = res.summary || "No summary provided.";
 
+    // Stagger card entrance animations
+    triggerCardAnimations(container);
     container.scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -318,6 +417,141 @@ document.addEventListener('click', (e) => {
     if (!e.target.closest('.search-container')) searchResults.classList.add('hidden');
 });
 
+// ─── COUNT-UP ANIMATION ───
+function animateCountUp(elId, value, suffix = '', decimals = 0, useLocale = false) {
+    const el = document.getElementById(elId);
+    if (value == null || isNaN(Number(value))) { el.textContent = '-'; return; }
+    const target = Number(value);
+    const duration = 800;
+    const startTime = performance.now();
+
+    function tick(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        // Ease out cubic
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = target * eased;
+        if (useLocale) {
+            el.textContent = Math.round(current).toLocaleString() + suffix;
+        } else {
+            el.textContent = (decimals > 0 ? current.toFixed(decimals) : Math.round(current).toString()) + suffix;
+        }
+        if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+}
+
+// ─── STAGGERED CARD ANIMATIONS ───
+function triggerCardAnimations(container) {
+    const animatable = container.querySelectorAll('.rec-card, .gi-bar-section, .grid-impact-section, .summary-box, .btn-download');
+    animatable.forEach((el, i) => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
+        }, i * 80);
+    });
+}
+
+// ─── CURSOR GLOW FOLLOWER ───
+(function initCursorGlow() {
+    const glow = document.createElement('div');
+    glow.className = 'cursor-glow';
+    document.body.appendChild(glow);
+
+    let mouseX = -200, mouseY = -200;
+    let glowX = -200, glowY = -200;
+
+    document.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+    });
+
+    function animate() {
+        // Smooth lerp
+        glowX += (mouseX - glowX) * 0.15;
+        glowY += (mouseY - glowY) * 0.15;
+        glow.style.left = glowX + 'px';
+        glow.style.top = glowY + 'px';
+        requestAnimationFrame(animate);
+    }
+    animate();
+})();
+
+// ─── FLOATING BACKGROUND PARTICLES ───
+(function initParticles() {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'bg-particles';
+    document.body.prepend(canvas);
+    const ctx = canvas.getContext('2d');
+
+    let w, h;
+    function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const PARTICLE_COUNT = 35;
+    const particles = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push({
+            x: Math.random() * w,
+            y: Math.random() * h,
+            r: Math.random() * 2 + 0.5,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: (Math.random() - 0.5) * 0.3,
+            alpha: Math.random() * 0.3 + 0.05
+        });
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, w, h);
+        const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+
+        for (const p of particles) {
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.x < 0) p.x = w;
+            if (p.x > w) p.x = 0;
+            if (p.y < 0) p.y = h;
+            if (p.y > h) p.y = 0;
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fillStyle = isDark
+                ? `rgba(99, 102, 241, ${p.alpha})`
+                : `rgba(99, 102, 241, ${p.alpha * 0.6})`;
+            ctx.fill();
+        }
+
+        // Draw subtle connecting lines between nearby particles
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 150) {
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = isDark
+                        ? `rgba(99, 102, 241, ${0.06 * (1 - dist / 150)})`
+                        : `rgba(99, 102, 241, ${0.04 * (1 - dist / 150)})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        requestAnimationFrame(draw);
+    }
+    draw();
+})();
+
 // ─── THEME SWITCHER ───
 const themeToggle = document.getElementById('themeToggle');
 const htmlElement = document.documentElement;
@@ -327,7 +561,6 @@ function setTheme(theme) {
     localStorage.setItem('theme', theme);
 }
 
-// Check for saved theme or system preference
 const savedTheme = localStorage.getItem('theme');
 const systemTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 setTheme(savedTheme || systemTheme);

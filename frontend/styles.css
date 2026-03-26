@@ -468,7 +468,17 @@ header {
 .dial-knob {
     fill: white;
     filter: drop-shadow(0 0 12px var(--accent));
-    transition: cx 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), cy 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: cx 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), cy 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), r 0.2s ease;
+    cursor: grab;
+}
+
+.dial-knob:hover {
+    r: 9;
+    filter: drop-shadow(0 0 18px var(--accent));
+}
+
+.dial-svg:active .dial-knob {
+    cursor: grabbing;
 }
 
 .dial-center-value {
@@ -522,6 +532,17 @@ header {
     background: var(--accent-gradient);
     box-shadow: 0 2px 12px var(--accent-glow);
     border-color: transparent;
+}
+
+.dial-label.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.dial-label.disabled:hover {
+    color: var(--text-muted);
+    background: transparent;
 }
 
 .btn-primary {
@@ -897,6 +918,16 @@ header {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 1rem;
+}
+
+.impact-grid.impact-grid-5 {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+@media (max-width: 1024px) {
+    .impact-grid.impact-grid-5 {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }
 
 .impact-item {
@@ -1409,4 +1440,117 @@ header {
 
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
+}
+
+/* ─── CURSOR GLOW FOLLOWER ─── */
+.cursor-glow {
+    position: fixed;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    will-change: left, top;
+    mix-blend-mode: screen;
+    transition: opacity 0.3s;
+}
+
+[data-theme='light'] .cursor-glow {
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, transparent 70%);
+}
+
+/* ─── BACKGROUND PARTICLES CANVAS ─── */
+.bg-particles {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+[data-theme='light'] .bg-particles {
+    opacity: 0.5;
+}
+
+/* Content must sit above particles */
+.app-container {
+    position: relative;
+    z-index: 1;
+}
+
+/* ─── STATUS BADGE PULSE ─── */
+.status-badge.ok {
+    animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0);
+    }
+}
+
+.status-badge.increase {
+    animation: badgePulseWarn 2s ease-in-out infinite;
+}
+
+@keyframes badgePulseWarn {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0);
+    }
+}
+
+/* ─── SAVINGS CARD GLOW ─── */
+.impact-item.savings-highlight {
+    position: relative;
+    overflow: hidden;
+}
+
+.impact-item.savings-highlight::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), transparent, rgba(16, 185, 129, 0.05));
+    border-radius: inherit;
+    pointer-events: none;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* ─── GI BAR GLOW ─── */
+.gi-fill[id='giProjectedBar'] {
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+}
+
+/* ─── CARD ENTRANCE (controlled by JS) ─── */
+.rec-card,
+.gi-bar-section,
+.grid-impact-section,
+.summary-box,
+.btn-download {
+    will-change: opacity, transform;
 }

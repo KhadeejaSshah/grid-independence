@@ -363,6 +363,8 @@ def _apply_proportional_tiers(res: Dict, current_pv: float, current_batt: float,
                 "projected_daily_import_kwh": tier_import,
                 "projected_night_import_kwh": tier_night,
                 "annual_savings_kwh": tier_savings,
+                "annual_savings_pkr": round(tier_savings * 47, 0),
+                "monthly_savings_pkr": round(tier_savings * 47 / 12, 0),
             }
         }
 
