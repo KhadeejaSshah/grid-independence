@@ -60,15 +60,16 @@ def get_systems(search: str = ""):
         query = """
             SELECT id, system_no, name, customer_name, location, state
             FROM systems
-            WHERE is_export_enabled = true AND disconnected = false
         """
         params = []
         if search:
-            query += " AND (name ILIKE %s OR id::text ILIKE %s OR customer_name ILIKE %s OR location ILIKE %s)"
+            query += " WHERE (name ILIKE %s OR id::text ILIKE %s OR customer_name ILIKE %s OR location ILIKE %s)"
             search_param = f"%{search}%"
             params = [search_param] * 4
 
         query += " ORDER BY name ASC LIMIT 50"
+        print(f"[DEBUG] SQL Query: {query}")
+        print(f"[DEBUG] SQL Params: {params}")
         cur.execute(query, params)
         results = cur.fetchall()
         cur.close()
@@ -88,8 +89,8 @@ def get_system_data(system_id: str):
     """
     try:
         data = recommendation_engine.gather_system_data(system_id)
-        if not data.get("specs"):
-            raise HTTPException(status_code=404, detail="System not found in database")
+        if not data.get("specs") and not data.get("summary_metrics"):
+            raise HTTPException(status_code=404, detail="System not found — no Postgres data or CSV")
         return data
     except HTTPException:
         raise
@@ -105,7 +106,7 @@ def get_recommendation(request: RecommendationRequest):
     """
     try:
         data = recommendation_engine.gather_system_data(request.system_id)
-        if not data.get("specs"):
+        if not data.get("specs") and not data.get("summary_metrics"):
             raise HTTPException(status_code=404, detail="System not found")
         # Always compute for 100% so all tiers are consistent
         recommendation = recommendation_engine.get_ai_recommendation(data, 100)

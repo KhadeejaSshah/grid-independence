@@ -103,9 +103,7 @@ def query_system(system_id):
         ) pv
             ON pv.city = s.location
 
-        WHERE s.id = %s
-          AND s.is_export_enabled = true
-          AND s.disconnected = false;
+        WHERE s.id = %s;
         """
 
         cur.execute(query, (system_id,))
