@@ -140,6 +140,14 @@ function renderRecommendations(res) {
     const container = document.getElementById('resultsContainer');
     container.classList.remove('hidden');
 
+    // Pick the tier matching the selected target independence
+    const tierKey = `tier_${targetIndependence}`;
+    const tier = (res.tiers && res.tiers[tierKey]) || {};
+    const tierSolar = tier.solar || {};
+    const tierBatt = tier.battery || {};
+    const tierInv = tier.inverter || {};
+    const tierGrid = tier.grid_impact || {};
+
     // Grid Independence Bars
     const giCurrent = res.current_grid_independence || 0;
     const giProjected = res.projected_grid_independence || 0;
@@ -148,36 +156,36 @@ function renderRecommendations(res) {
     document.getElementById('giCurrentVal').textContent = `${Math.round(giCurrent)}%`;
     document.getElementById('giProjectedVal').textContent = `${Math.round(giProjected)}%`;
 
-    // Solar Card
+    // Solar Card — use tier-scaled values
     const s = res.solar || {};
     setBadge('solarBadge', s.status);
     document.getElementById('solarAction').textContent = s.action || '-';
     document.getElementById('solarCurrent').textContent = fmt(s.current_kw);
-    document.getElementById('solarRec').textContent = fmt(s.recommended_kw);
-    document.getElementById('solarGain').textContent = s.production_gain_kwh != null ? `+${fmt(s.production_gain_kwh)} kWh/day` : '-';
+    document.getElementById('solarRec').textContent = fmt(tierSolar.recommended_kw || s.recommended_kw_100);
+    document.getElementById('solarGain').textContent = tierSolar.production_gain_kwh != null ? `+${fmt(tierSolar.production_gain_kwh)} kWh/day` : '-';
 
-    // Battery Card
+    // Battery Card — use tier-scaled values
     const b = res.battery || {};
     setBadge('batteryBadge', b.status);
     document.getElementById('batteryAction').textContent = b.action || '-';
     document.getElementById('batCurrent').textContent = fmt(b.current_kwh);
-    document.getElementById('batRec').textContent = fmt(b.recommended_kwh);
-    document.getElementById('batGain').textContent = b.backup_hours_gain != null ? `+${fmt(b.backup_hours_gain)} hrs` : '-';
+    document.getElementById('batRec').textContent = fmt(tierBatt.recommended_kwh || b.recommended_kwh_100);
+    document.getElementById('batGain').textContent = tierBatt.backup_hours_gain != null ? `+${fmt(tierBatt.backup_hours_gain)} hrs` : '-';
 
-    // Inverter Card
+    // Inverter Card — use tier-scaled values
     const inv = res.inverter || {};
     setBadge('inverterBadge', inv.status);
     document.getElementById('inverterAction').textContent = inv.action || '-';
     document.getElementById('invCurrent').textContent = fmt(inv.current_kw);
-    document.getElementById('invRec').textContent = fmt(inv.recommended_kw);
+    document.getElementById('invRec').textContent = fmt(tierInv.recommended_kw || inv.recommended_kw_100);
 
-    // Grid Impact
+    // Grid Impact — use tier-scaled values
     const gi = res.grid_impact || {};
     document.getElementById('impDailyBefore').textContent = `${fmt(gi.current_daily_import_kwh)} kWh`;
-    document.getElementById('impDailyAfter').textContent = `${fmt(gi.projected_daily_import_kwh)} kWh`;
+    document.getElementById('impDailyAfter').textContent = `${fmt(tierGrid.projected_daily_import_kwh || gi.projected_daily_import_kwh)} kWh`;
     document.getElementById('impNightBefore').textContent = `${fmt(gi.current_night_import_kwh)} kWh`;
-    document.getElementById('impNightAfter').textContent = `${fmt(gi.projected_night_import_kwh)} kWh`;
-    document.getElementById('impAnnual').textContent = gi.annual_savings_kwh != null ? `${fmt(gi.annual_savings_kwh)} kWh` : '-';
+    document.getElementById('impNightAfter').textContent = `${fmt(tierGrid.projected_night_import_kwh || gi.projected_night_import_kwh)} kWh`;
+    document.getElementById('impAnnual').textContent = tierGrid.annual_savings_kwh != null ? `${fmt(tierGrid.annual_savings_kwh)} kWh` : '-';
 
     // Summary
     document.getElementById('aiSummary').textContent = res.summary || "No summary provided.";
