@@ -50,6 +50,7 @@ def gather_system_data(system_id: str, out_dir: str = ".") -> Dict[str, Any]:
                 "state": pg.get("state"),
                 "region": pg.get("region"),
             }
+            print(f"[DEBUG] Postgres Data: {data['specs']}")
         else:
             print(f"[DEBUG] Postgres: No data found for {system_id}")
     except Exception as e:
@@ -137,7 +138,7 @@ def get_ai_recommendation(system_data: Dict[str, Any], target_independence: int)
     specs = system_data.get("specs") or {}
 
     daily_import = _safe_float(sm.get("daily_avg_import")) or 0
-    pv_kw = _safe_float(sm.get("current_pv")) or _safe_float(specs.get("panels_capacity_kw")) or 0
+    pv_kw = _safe_float(specs.get("panels_capacity_kw")) or 0
     sun_hours = _safe_float(sm.get("sun_hours_per_day")) or 5
     avg_total_load = _safe_float(sm.get("avg_total_load"))
     avg_night_fraction = _safe_float(sm.get("avg_night_fraction"))

@@ -111,7 +111,7 @@ function displaySystemData(data) {
     document.getElementById('systemMeta').textContent = `${specs.customer || ''} | ${specs.location || ''} | Deployed: ${deployed}`;
 
     // Prioritize CSV summary_metrics over Postgres specs for display
-    const currentPV = ie.current_pv != null ? ie.current_pv : specs.panels_capacity_kw;
+    const currentPV = specs.panels_capacity_kw || null;
     const currentBat = ie.current_battery != null ? ie.current_battery : specs.current_battery_kwh;
 
     document.getElementById('pvCap').textContent = currentPV != null ? Number(currentPV).toFixed(2) : '-';
