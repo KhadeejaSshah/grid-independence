@@ -102,13 +102,20 @@ async function selectSystem(id, name) {
 }
 
 function displaySystemData(data) {
+    console.log("Displaying system data (v3 - CSV priority)...", data);
     const specs = data.specs || {};
+
     const ie = data.import_export || data.summary_metrics || {};
 
     const deployed = specs.deployed_at ? specs.deployed_at.split(' ')[0] : 'N/A';
     document.getElementById('systemMeta').textContent = `${specs.customer || ''} | ${specs.location || ''} | Deployed: ${deployed}`;
-    document.getElementById('pvCap').textContent = specs.panels_capacity_kw != null ? Number(specs.panels_capacity_kw).toFixed(2) : '-';
-    document.getElementById('batCap').textContent = specs.current_battery_kwh != null ? specs.current_battery_kwh : '-';
+
+    // Prioritize CSV summary_metrics over Postgres specs for display
+    const currentPV = ie.current_pv != null ? ie.current_pv : specs.panels_capacity_kw;
+    const currentBat = ie.current_battery != null ? ie.current_battery : specs.current_battery_kwh;
+
+    document.getElementById('pvCap').textContent = currentPV != null ? Number(currentPV).toFixed(2) : '-';
+    document.getElementById('batCap').textContent = currentBat != null ? Number(currentBat).toFixed(2) : '-';
     document.getElementById('invModel').textContent = specs.inverter_model || '-';
     document.getElementById('dailyImport').textContent = ie.daily_avg_import != null ? Number(ie.daily_avg_import).toFixed(2) : '-';
 }

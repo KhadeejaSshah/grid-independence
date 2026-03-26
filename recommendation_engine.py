@@ -137,18 +137,40 @@ def get_ai_recommendation(system_data: Dict[str, Any], target_independence: int)
     specs = system_data.get("specs") or {}
 
     daily_import = _safe_float(sm.get("daily_avg_import")) or 0
-    pv_kw = _safe_float(specs.get("panels_capacity_kw")) or 0
+    pv_kw = _safe_float(sm.get("current_pv")) or _safe_float(specs.get("panels_capacity_kw")) or 0
     sun_hours = _safe_float(sm.get("sun_hours_per_day")) or 5
     avg_total_load = _safe_float(sm.get("avg_total_load"))
     avg_night_fraction = _safe_float(sm.get("avg_night_fraction"))
-    battery_kwh = _safe_float(specs.get("current_battery_kwh")) or 0
-    inverter_kw = _safe_float(specs.get("inverters_capacity_kw")) or 0
+    
+    # Prioritize CSV 'current_battery' or 'current_battery_power' over Postgres
+    battery_kwh = _safe_float(sm.get("current_battery")) or _safe_float(specs.get("current_battery_kwh")) or 0
+    battery_current_energy = _safe_float(sm.get("current_battery_power"))
+    battery_soc = _safe_float(sm.get("current_battery_soc")) or _safe_float(specs.get("battery_soc"))
+    
+    inverter_kw = _safe_float(sm.get("inverter_capacity")) or _safe_float(specs.get("inverters_capacity_kw")) or 0
     actual_system_age = _safe_float(sm.get("actual_system_age"))
-    inverter_capacity = _safe_float(sm.get("inverter_capacity")) or inverter_kw
+    inverter_capacity = inverter_kw
 
     daily_production = pv_kw * sun_hours * 0.8  # estimated daily solar output
-    daily_load = daily_production + daily_import  # total load ≈ what solar covers + what grid covers
-    current_gi = round(((daily_load - daily_import) / daily_load * 100), 1) if daily_load > 0 else 0
+
+    # Load calculation: use measured total load if available, else estimate
+    if avg_total_load and avg_total_load > 0:
+        daily_load = avg_total_load
+        print(f"[AI] Using measured average total load: {daily_load} kWh")
+    else:
+        # Fallback: estimate load as solar production + remaining grid import
+        daily_load = daily_production + daily_import
+        print(f"[AI] Using estimated total load: {daily_load} kWh")
+
+    # Current Grid Independence: (Load - Import) / Load
+    # We use daily_import as the primary measure of what's still coming from the grid
+    if daily_load > 0:
+        current_gi = round(((daily_load - daily_import) / daily_load * 100), 1)
+        # Ensure it doesn't go negative if import > load (data error)
+        current_gi = max(0.0, min(100.0, current_gi))
+    else:
+        current_gi = 0.0
+
     target_met = current_gi >= target_independence
 
     print(f"[AI] Pre-calc values: import={daily_import}, pv_kw={pv_kw}, sun_hours={sun_hours}")
