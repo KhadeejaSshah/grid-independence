@@ -6,7 +6,8 @@ import time
 SYSTEMS_FILE = "oldsystemisb.md"
 START_DATE = "2025-01-01"
 END_DATE = "2026-03-23"
-LOG_FILE = "bulk_run.log"
+OUTPUT_DIR = "output"
+LOG_FILE = os.path.join(OUTPUT_DIR, "bulk_run.log")
 
 def log(message):
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -16,6 +17,8 @@ def log(message):
         f.write(formatted_msg + "\n")
 
 def process_systems():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
     if not os.path.exists(SYSTEMS_FILE):
         log(f"Error: {SYSTEMS_FILE} not found.")
         return
@@ -26,7 +29,7 @@ def process_systems():
     log(f"Found {len(systems)} systems to process.")
 
     for i, system_id in enumerate(systems):
-        summary_file = f"{system_id}_summary.csv"
+        summary_file = os.path.join(OUTPUT_DIR, f"{system_id}_summary.csv")
         
         if os.path.exists(summary_file):
             log(f"[{i+1}/{len(systems)}] Skipping {system_id} (Results already exist).")
