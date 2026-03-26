@@ -305,6 +305,11 @@ def _apply_proportional_tiers(res: Dict, current_pv: float, current_batt: float,
 
     annual_savings_100 = grid_impact.get("annual_savings_kwh") or 0
 
+    # Projected grid independence scaling
+    current_gi = res.get("current_grid_independence") or 0
+    projected_gi_100 = res.get("projected_grid_independence") or 0
+    gi_improvement = projected_gi_100 - current_gi  # total GI improvement at 100%
+
     tiers = {}
     for pct in [25, 50, 75, 100]:
         frac = pct / 100.0
@@ -316,22 +321,43 @@ def _apply_proportional_tiers(res: Dict, current_pv: float, current_batt: float,
         tier_savings = round(annual_savings_100 * frac, 2)
         tier_production_gain = round((solar.get("production_gain_kwh") or 0) * frac, 2)
         tier_backup_gain = round((battery.get("backup_hours_gain") or 0) * frac, 2)
+        tier_gi = round(min(100.0, current_gi + gi_improvement * frac), 1)
+
+        # Determine per-tier status: if additional capacity rounds to 0, show OK
+        solar_additional = round(solar_add * frac, 2)
+        batt_additional = round(batt_add * frac, 2)
+        inv_additional = round(inv_add * frac, 2)
+
+        solar_status = "OK" if solar_additional <= 0 else (solar.get("status") or "Increase")
+        batt_status = "OK" if batt_additional <= 0 else (battery.get("status") or "Increase")
+        inv_status = "OK" if inv_additional <= 0 else (inverter.get("status") or "Upgrade")
+
+        solar_action = "No action needed" if solar_additional <= 0 else (solar.get("action") or "Increase PV capacity")
+        batt_action = "No action needed" if batt_additional <= 0 else (battery.get("action") or "Increase battery capacity")
+        inv_action = "No action needed" if inv_additional <= 0 else (inverter.get("action") or "Upgrade inverter")
 
         tiers[f"tier_{pct}"] = {
             "target_independence": pct,
+            "projected_grid_independence": tier_gi,
             "solar": {
+                "status": solar_status,
+                "action": solar_action,
                 "recommended_kw": tier_solar,
-                "additional_kw": round(solar_add * frac, 2),
+                "additional_kw": solar_additional,
                 "production_gain_kwh": tier_production_gain,
             },
             "battery": {
+                "status": batt_status,
+                "action": batt_action,
                 "recommended_kwh": tier_batt,
-                "additional_kwh": round(batt_add * frac, 2),
+                "additional_kwh": batt_additional,
                 "backup_hours_gain": tier_backup_gain,
             },
             "inverter": {
+                "status": inv_status,
+                "action": inv_action,
                 "recommended_kw": tier_inv,
-                "additional_kw": round(inv_add * frac, 2),
+                "additional_kw": inv_additional,
             },
             "grid_impact": {
                 "projected_daily_import_kwh": tier_import,

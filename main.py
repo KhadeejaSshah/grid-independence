@@ -27,6 +27,18 @@ if not os.path.exists("frontend"):
 
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+
+class NoCacheStaticMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return response
+
+app.add_middleware(NoCacheStaticMiddleware)
+
 class RecommendationRequest(BaseModel):
     system_id: str
     target_independence: int
@@ -88,12 +100,15 @@ def get_system_data(system_id: str):
 def get_recommendation(request: RecommendationRequest):
     """
     Generates AI recommendation for a specific system and independence target.
+    Always runs the AI for 100% independence; the frontend uses tier data to display
+    the selected tier level.
     """
     try:
         data = recommendation_engine.gather_system_data(request.system_id)
         if not data.get("specs"):
             raise HTTPException(status_code=404, detail="System not found")
-        recommendation = recommendation_engine.get_ai_recommendation(data, request.target_independence)
+        # Always compute for 100% so all tiers are consistent
+        recommendation = recommendation_engine.get_ai_recommendation(data, 100)
         return recommendation
     except HTTPException:
         raise

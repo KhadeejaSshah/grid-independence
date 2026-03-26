@@ -1,12 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-    --bg-primary: #06070a;
-    --bg-secondary: #0d0f14;
-    --bg-card: rgba(17, 20, 28, 0.7);
-    --bg-card-hover: rgba(25, 29, 40, 0.8);
-    --glass: rgba(255, 255, 255, 0.03);
-    --glass-border: rgba(255, 255, 255, 0.06);
     --accent: #6366f1;
     --accent-light: #818cf8;
     --accent-glow: rgba(99, 102, 241, 0.25);
@@ -18,14 +12,44 @@
     --danger: #ef4444;
     --danger-glow: rgba(239, 68, 68, 0.15);
     --cyan: #22d3ee;
-    --text-primary: #f1f5f9;
-    --text-secondary: #64748b;
-    --text-muted: #475569;
-    --border: rgba(255, 255, 255, 0.06);
-    --border-hover: rgba(255, 255, 255, 0.12);
     --radius-sm: 10px;
     --radius-md: 16px;
     --radius-lg: 24px;
+    --transition-speed: 0.3s;
+}
+
+[data-theme='dark'] {
+    --bg-primary: #06070a;
+    --bg-secondary: #0d0f14;
+    --bg-card: rgba(17, 20, 28, 0.7);
+    --bg-card-hover: rgba(25, 29, 40, 0.8);
+    --glass: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.06);
+    --text-primary: #f1f5f9;
+    --text-secondary: #64748b;
+    --text-muted: #475569;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-hover: rgba(255, 255, 255, 0.18);
+    --input-bg: rgba(17, 20, 28, 0.9);
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    --mesh-opacity: 1;
+}
+
+[data-theme='light'] {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #f1f5f9;
+    --bg-card: rgba(255, 255, 255, 0.8);
+    --bg-card-hover: rgba(255, 255, 255, 0.95);
+    --glass: rgba(0, 0, 0, 0.02);
+    --glass-border: rgba(99, 102, 241, 0.1);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --border: rgba(99, 102, 241, 0.08);
+    --border-hover: rgba(99, 102, 241, 0.15);
+    --input-bg: #ffffff;
+    --shadow: 0 10px 30px rgba(99, 102, 241, 0.05);
+    --mesh-opacity: 0.4;
 }
 
 *,
@@ -43,6 +67,7 @@ body {
     min-height: 100vh;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
+    transition: background-color var(--transition-speed), color var(--transition-speed);
 }
 
 /* ─── ANIMATED MESH BACKGROUND ─── */
@@ -56,7 +81,9 @@ body::before {
         radial-gradient(ellipse 50% 30% at 50% 90%, rgba(34, 211, 238, 0.04), transparent);
     pointer-events: none;
     z-index: 0;
+    opacity: var(--mesh-opacity);
     animation: meshShift 20s ease-in-out infinite alternate;
+    transition: opacity var(--transition-speed);
 }
 
 @keyframes meshShift {
@@ -92,6 +119,12 @@ header {
     border-bottom: 1px solid var(--border);
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
 .logo {
     display: flex;
     align-items: center;
@@ -102,6 +135,7 @@ header {
     font-size: 1.4rem;
     background: var(--accent-gradient);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     filter: drop-shadow(0 0 8px var(--accent-glow));
 }
@@ -116,7 +150,45 @@ header {
 .accent {
     background: var(--accent-gradient);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
+}
+
+/* ─── THEME TOGGLE ─── */
+.theme-toggle-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow);
+}
+
+.theme-toggle-btn:hover {
+    transform: rotate(12deg) scale(1.1);
+    border-color: var(--accent);
+    background: var(--bg-card-hover);
+}
+
+.theme-toggle-btn .sun-icon {
+    display: none;
+}
+
+[data-theme='light'] .theme-toggle-btn .sun-icon {
+    display: block;
+    color: #f59e0b;
+}
+
+[data-theme='light'] .theme-toggle-btn .moon-icon {
+    display: none;
 }
 
 .search-container {
@@ -145,8 +217,8 @@ header {
 #systemSearch:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-glow), 0 4px 20px rgba(0, 0, 0, 0.3);
-    background: rgba(17, 20, 28, 0.9);
+    box-shadow: 0 0 0 3px var(--accent-glow), var(--shadow);
+    background: var(--input-bg);
 }
 
 .search-results {
@@ -154,14 +226,14 @@ header {
     top: calc(100% + 6px);
     left: 0;
     right: 0;
-    background: rgba(17, 20, 28, 0.95);
+    background: var(--input-bg);
     backdrop-filter: blur(20px);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     max-height: 400px;
     overflow-y: auto;
     z-index: 100;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    box-shadow: var(--shadow);
     animation: dropDown 0.2s ease;
 }
 
@@ -179,7 +251,7 @@ header {
 
 .search-item {
     padding: 0.85rem 1.25rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid var(--border);
     cursor: pointer;
     transition: all 0.15s;
 }
@@ -409,6 +481,7 @@ header {
     letter-spacing: -2px;
     background: var(--accent-gradient);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     filter: drop-shadow(0 0 20px var(--accent-glow));
     transition: all 0.3s;
@@ -727,10 +800,11 @@ header {
     align-items: center;
     justify-content: space-between;
     padding: 0.85rem 1rem;
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--bg-secondary);
     border-radius: var(--radius-sm);
     margin-bottom: 0.85rem;
-    border: 1px solid rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    transition: all var(--transition-speed);
 }
 
 .ba-col {
@@ -741,11 +815,12 @@ header {
 .ba-label {
     display: block;
     font-size: 0.6rem;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 1px;
     font-weight: 700;
     margin-bottom: 0.35rem;
+    opacity: 0.8;
 }
 
 .ba-value {
@@ -758,19 +833,21 @@ header {
 .ba-value.highlight {
     background: var(--accent-gradient);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
 .ba-unit {
     font-size: 0.68rem;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-weight: 600;
 }
 
 .ba-arrow {
     font-size: 1.1rem;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     padding: 0 0.25rem;
+    opacity: 0.5;
 }
 
 .rec-stat-row {

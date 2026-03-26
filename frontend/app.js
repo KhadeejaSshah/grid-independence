@@ -43,6 +43,10 @@ document.querySelectorAll('.dial-label').forEach(label => {
         label.classList.add('active');
         targetIndependence = parseInt(label.dataset.value);
         setDialValue(targetIndependence);
+        // Re-render with cached recommendation data for the new tier
+        if (lastRecommendation) {
+            renderRecommendations(lastRecommendation);
+        }
     });
 });
 
@@ -155,9 +159,11 @@ function renderRecommendations(res) {
     const tierInv = tier.inverter || {};
     const tierGrid = tier.grid_impact || {};
 
-    // Grid Independence Bars
+    // Grid Independence Bars — use tier-specific projected value
     const giCurrent = res.current_grid_independence || 0;
-    const giProjected = res.projected_grid_independence || 0;
+    const giProjected = tier.projected_grid_independence != null
+        ? tier.projected_grid_independence
+        : (res.projected_grid_independence || 0);
     animateBar('giCurrentBar', giCurrent);
     animateBar('giProjectedBar', giProjected);
     document.getElementById('giCurrentVal').textContent = `${Math.round(giCurrent)}%`;
@@ -165,33 +171,33 @@ function renderRecommendations(res) {
 
     // Solar Card — use tier-scaled values
     const s = res.solar || {};
-    setBadge('solarBadge', s.status);
-    document.getElementById('solarAction').textContent = s.action || '-';
+    setBadge('solarBadge', tierSolar.status || s.status);
+    document.getElementById('solarAction').textContent = tierSolar.action || s.action || '-';
     document.getElementById('solarCurrent').textContent = fmt(s.current_kw);
     document.getElementById('solarRec').textContent = fmt(tierSolar.recommended_kw || s.recommended_kw_100);
     document.getElementById('solarGain').textContent = tierSolar.production_gain_kwh != null ? `+${fmt(tierSolar.production_gain_kwh)} kWh/day` : '-';
 
     // Battery Card — use tier-scaled values
     const b = res.battery || {};
-    setBadge('batteryBadge', b.status);
-    document.getElementById('batteryAction').textContent = b.action || '-';
+    setBadge('batteryBadge', tierBatt.status || b.status);
+    document.getElementById('batteryAction').textContent = tierBatt.action || b.action || '-';
     document.getElementById('batCurrent').textContent = fmt(b.current_kwh);
     document.getElementById('batRec').textContent = fmt(tierBatt.recommended_kwh || b.recommended_kwh_100);
     document.getElementById('batGain').textContent = tierBatt.backup_hours_gain != null ? `+${fmt(tierBatt.backup_hours_gain)} hrs` : '-';
 
     // Inverter Card — use tier-scaled values
     const inv = res.inverter || {};
-    setBadge('inverterBadge', inv.status);
-    document.getElementById('inverterAction').textContent = inv.action || '-';
+    setBadge('inverterBadge', tierInv.status || inv.status);
+    document.getElementById('inverterAction').textContent = tierInv.action || inv.action || '-';
     document.getElementById('invCurrent').textContent = fmt(inv.current_kw);
     document.getElementById('invRec').textContent = fmt(tierInv.recommended_kw || inv.recommended_kw_100);
 
     // Grid Impact — use tier-scaled values
     const gi = res.grid_impact || {};
     document.getElementById('impDailyBefore').textContent = `${fmt(gi.current_daily_import_kwh)} kWh`;
-    document.getElementById('impDailyAfter').textContent = `${fmt(tierGrid.projected_daily_import_kwh || gi.projected_daily_import_kwh)} kWh`;
+    document.getElementById('impDailyAfter').textContent = `${fmt(tierGrid.projected_daily_import_kwh != null ? tierGrid.projected_daily_import_kwh : gi.projected_daily_import_kwh)} kWh`;
     document.getElementById('impNightBefore').textContent = `${fmt(gi.current_night_import_kwh)} kWh`;
-    document.getElementById('impNightAfter').textContent = `${fmt(tierGrid.projected_night_import_kwh || gi.projected_night_import_kwh)} kWh`;
+    document.getElementById('impNightAfter').textContent = `${fmt(tierGrid.projected_night_import_kwh != null ? tierGrid.projected_night_import_kwh : gi.projected_night_import_kwh)} kWh`;
     document.getElementById('impAnnual').textContent = tierGrid.annual_savings_kwh != null ? `${fmt(tierGrid.annual_savings_kwh)} kWh` : '-';
 
     // Summary
@@ -311,3 +317,24 @@ function hideLoading() { loadingOverlay.classList.add('hidden'); }
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.search-container')) searchResults.classList.add('hidden');
 });
+
+// ─── THEME SWITCHER ───
+const themeToggle = document.getElementById('themeToggle');
+const htmlElement = document.documentElement;
+
+function setTheme(theme) {
+    htmlElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+}
+
+// Check for saved theme or system preference
+const savedTheme = localStorage.getItem('theme');
+const systemTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+setTheme(savedTheme || systemTheme);
+
+if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+        const currentTheme = htmlElement.getAttribute('data-theme');
+        setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    });
+}
