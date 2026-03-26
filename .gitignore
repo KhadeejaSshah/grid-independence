@@ -18,3 +18,5 @@ __pycache__/
 
 #csv
 *.csv
+*_bill.pdf
+*_bill.txt
