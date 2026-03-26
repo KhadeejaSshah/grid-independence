@@ -19,10 +19,10 @@ try:
 except Exception:
     query_system = None
 
-# try:
-#     # import bms_soc
-# except Exception:
-#     bms_soc = None
+try:
+    import bms_soc
+except Exception:
+    bms_soc = None
 
 try:
     import load_power_report
@@ -93,9 +93,33 @@ def safe_query_scylla_energy(system_id, limit=100):
 
 
 def safe_bms_soc_summary(system_id, start_date, out_path):
-    # bms_soc integration disabled; return None as stub
-    print("Note: bms_soc integration is disabled in this build.")
-    return None
+    if bms_soc is None:
+        print("Warning: bms_soc module not available. Skipping BMS SOC summary.")
+        return None
+    try:
+        conf = bms_soc.read_config()
+        cluster, session = None, None
+        try:
+            cluster, session = bms_soc.connect_scylla(conf)
+            rows = bms_soc.query_bms_soc(session, system_id, start_date)
+            # write to a temporary CSV with system id name
+            bms_out = out_path
+            bms_soc.analyze_and_write(system_id, rows, bms_out)
+            return bms_out
+        finally:
+            try:
+                if session:
+                    session.shutdown()
+            except Exception:
+                pass
+            try:
+                if cluster:
+                    cluster.shutdown()
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"Warning: BMS SOC processing failed: {e}")
+        return None
 
 
 def safe_load_power_summary(system_id, start_date, out_path):
@@ -267,9 +291,8 @@ def main():
     scylla_energy_rows = safe_query_scylla_energy(system_id, limit=500)
 
     # 4. BMS SOC
-    # bms_soc call disabled; skip and set bms_csv to None
-    bms_out = None
-    bms_csv = None
+    bms_out = os.path.join(out_dir, f"{system_id}_bms_soc_summary.csv")
+    bms_csv = safe_bms_soc_summary(system_id, start, bms_out)
 
     # 5. Load power
     load_out = os.path.join(out_dir, f"{system_id}_load_power_summary.csv")
@@ -421,20 +444,7 @@ def main():
         'location_yield': None,
         'kwh': None,
         'peak_power_import_value': None,
-        'avg_365_days_power': None,
-        'avg_total_load': None,
-        'avg_night_fraction': None,
-        # grid power API derived fields
-        'avg_daily_import_kwh_grid': None,
-        'avg_day_import_kwh_grid': None,
-        'avg_night_import_kwh_grid': None,
-        'peak_daily_import_kwh_grid': None,
-        'peak_day_import_kwh_grid': None,
-        'peak_night_import_kwh_grid': None,
-        'peak_import_power_kw_grid': None,
-        'avg_365_days_grid': None,
-        'actual_system_age': None,
-        'inverter_capacity': None
+        'avg_365_days_power': None
     }
 
     # 1) import-export summary
@@ -462,28 +472,7 @@ def main():
 
     # 1.5) grid summary values (if available)
     try:
-        # if grid_summary_csv not provided or missing, search common locations
-        candidates = []
-        if grid_summary_csv:
-            candidates.append(grid_summary_csv)
-        candidates.extend([
-            os.path.join(out_dir, 'grid_summary.csv'),
-            os.path.join(out_dir, f"{system_id}_grid_summary.csv"),
-            'grid_summary.csv',
-            f"{system_id}_grid_summary.csv",
-            os.path.join('.', 'grid_summary.csv')
-        ])
-        found = None
-        for c in candidates:
-            try:
-                if c and os.path.exists(c):
-                    found = c
-                    break
-            except Exception:
-                continue
-        if found:
-            grid_summary_csv = found
-        if grid_summary_csv and os.path.exists(grid_summary_csv):
+        if peak_power_import_value is None and grid_summary_csv and os.path.exists(grid_summary_csv):
             import pandas as _pd
             gdf = _pd.read_csv(grid_summary_csv)
             row = None
@@ -495,32 +484,16 @@ def main():
                     row = gdf.iloc[0]
             else:
                 row = gdf.iloc[0]
-
-            # map values (support both exact and legacy names)
-            def get_float(keys):
-                for k in keys:
-                    try:
-                        if k in row.index and row.get(k) is not None and str(row.get(k)) != 'nan':
-                            return float(row.get(k))
-                    except Exception:
-                        continue
-                return None
-
-            # legacy peak/import
-            if summary.get('peak_power_import_value') is None:
-                summary['peak_power_import_value'] = get_float(['peak_import_power','peak_import_power_kw','peak_import_power_kw_grid'])
-            if summary.get('avg_365_days_power') is None:
-                summary['avg_365_days_power'] = get_float(['avg_365_days','avg_365_days_grid'])
-
-            # grid-derived fields
-            summary['avg_daily_import_kwh_grid'] = get_float(['avg_daily_import_kwh','avg_daily_import_kwh_grid','avg_daily_import'])
-            summary['avg_day_import_kwh_grid'] = get_float(['avg_day_import_kwh','avg_day_import_kwh_grid','avg_day_import'])
-            summary['avg_night_import_kwh_grid'] = get_float(['avg_night_import_kwh','avg_night_import_kwh_grid','avg_night_import'])
-            summary['peak_daily_import_kwh_grid'] = get_float(['peak_daily_import_kwh','peak_daily_import_kwh_grid','peak_daily_import'])
-            summary['peak_day_import_kwh_grid'] = get_float(['peak_day_import_kwh','peak_day_import_kwh_grid','peak_day_import'])
-            summary['peak_night_import_kwh_grid'] = get_float(['peak_night_import_kwh','peak_night_import_kwh_grid','peak_night_import'])
-            summary['peak_import_power_kw_grid'] = get_float(['peak_import_power_kw','peak_import_power_kw_grid','peak_import_power','peak_import_power_grid'])
-            summary['avg_365_days_grid'] = get_float(['avg_365_days','avg_365_days_grid'])
+            try:
+                if 'peak_import_power' in row.index:
+                    summary['peak_power_import_value'] = float(row['peak_import_power'])
+            except Exception:
+                pass
+            try:
+                if 'avg_365_days' in row.index:
+                    summary['avg_365_days_power'] = float(row['avg_365_days'])
+            except Exception:
+                pass
     except Exception as e:
         print(f"Warning: reading grid_summary.csv failed: {e}")
 
@@ -612,7 +585,7 @@ def main():
                     pass
     except Exception as e:
         print(f"Warning: extracting console values failed: {e}")
-    current_date = datetime.now().date()
+
     # 4) other battery metadata from postgres
     try:
         if isinstance(postgres, dict):
@@ -625,36 +598,12 @@ def main():
             ################3
             summary['new_battery_design_year'] = postgres.get('warranty_expiry_date') or postgres.get('deployed_at')
             summary['battery_dod'] = 100 - postgres.get('battery_soc')
-            summary['battery_efficiency'] = 0.6
+            summary['battery_efficiency'] = 0.9
             summary['location_yield'] = postgres.get('average_pv_production_near_by')
             summary['current_battery_soc'] = postgres.get('battery_soc')
             summary['current_battery_power'] = postgres.get('batteries_capacity')
             summary['current_pv_kw'] = float(postgres.get('pv_produced_last_hour'))
             summary['current_pv'] = summary['current_pv_kw']
-            summary['actual_system_age'] = None
-            summary['inverter_capacity'] = None
-            try:
-                live_date_raw = postgres.get('live_date')
-                if live_date_raw:
-                    # try parsing various formats to a date
-                    try:
-                        if isinstance(live_date_raw, (int, float)):
-                            ld_dt = datetime.fromtimestamp(float(live_date_raw))
-                        else:
-                            try:
-                                ld_dt = datetime.fromisoformat(str(live_date_raw))
-                            except Exception:
-                                ld_dt = pd.to_datetime(live_date_raw, errors='coerce')
-                        if pd.notna(ld_dt):
-                            # ensure date
-                            ld_date = ld_dt.date() if isinstance(ld_dt, datetime) else pd.to_datetime(ld_dt).date()
-                            summary['actual_system_age'] = (current_date - ld_date).days
-                    except Exception:
-                        summary['actual_system_age'] = None
-                # inverter capacity
-                summary['inverter_capacity'] = postgres.get('inverters_capacity')
-            except Exception:
-                pass
     except Exception:
         pass
 
@@ -685,62 +634,11 @@ def main():
     except Exception as e:
         print(f"Warning: computing kwh failed: {e}")
 
-    # --- Compute avg daily total load and avg night fraction from energy_load outputs ---
-    try:
-        avg_total_load = None
-        avg_night_fraction = None
-        # prefer daily CSV produced by energy_load.run_energy_load
-        if daily_energy_csv and os.path.exists(daily_energy_csv):
-            try:
-                ddf = pd.read_csv(daily_energy_csv)
-                if 'total_load' in ddf.columns:
-                    avg_total_load = float(ddf['total_load'].mean())
-                if 'night_fraction' in ddf.columns:
-                    avg_night_fraction = float(ddf['night_fraction'].mean())
-            except Exception:
-                pass
-        else:
-            # fallback: aggregate from raw hourly CSV
-            if raw_csv and os.path.exists(raw_csv):
-                try:
-                    rdf = pd.read_csv(raw_csv, parse_dates=['datetime'])
-                    rdf['date'] = pd.to_datetime(rdf['datetime']).dt.date
-                    daily = rdf.groupby('date')['load'].sum().reset_index()
-                    if 'load' in daily.columns:
-                        avg_total_load = float(daily['load'].mean())
-                    # compute night fraction if sunrise/sunset present
-                    if 'sunrise' in rdf.columns and 'sunset' in rdf.columns:
-                        try:
-                            rdf['sunrise'] = pd.to_datetime(rdf['sunrise']).dt.time
-                            rdf['sunset'] = pd.to_datetime(rdf['sunset']).dt.time
-                        except Exception:
-                            pass
-
-                        def night_frac_group(g):
-                            total = g['load'].sum()
-                            if total <= 0:
-                                return 0.0
-                            first_sr = g['sunrise'].iloc[0]
-                            first_ss = g['sunset'].iloc[0]
-                            night = g[(pd.to_datetime(g['datetime']).dt.time < first_sr) | (pd.to_datetime(g['datetime']).dt.time > first_ss)]['load'].sum()
-                            return round(night / total * 100, 2)
-
-                        nf = rdf.groupby('date').apply(night_frac_group)
-                        if not nf.empty:
-                            avg_night_fraction = float(nf.mean())
-                except Exception:
-                    pass
-
-        summary['avg_total_load'] = avg_total_load
-        summary['avg_night_fraction'] = avg_night_fraction
-    except Exception as e:
-        print(f"Warning: computing avg load/night fraction failed: {e}")
-
     # write summary CSV
     try:
         summary_csv = os.path.join(out_dir, f"{system_id}_summary.csv")
         # ensure deterministic column order
-        cols = ['system_id','daily_avg_import','daily_peak_import','night_avg_import','night_peak_import','current_pv','current_battery','current_battery_power','current_battery_soc','new_battery_design_year','battery_dod','battery_efficiency','sun_hours_per_day','location_yield','avg_total_load','avg_night_fraction','avg_daily_import_kwh_grid','avg_day_import_kwh_grid','avg_night_import_kwh_grid','peak_daily_import_kwh_grid','peak_day_import_kwh_grid','peak_night_import_kwh_grid','peak_import_power_kw_grid','avg_365_days_grid','actual_system_age','inverter_capacity']
+        cols = ['system_id','daily_avg_import','daily_peak_import','night_avg_import','night_peak_import','current_pv','current_battery','current_battery_power','current_battery_soc','new_battery_design_year','battery_dod','battery_efficiency','sun_hours_per_day','location_yield']
         with open(summary_csv, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=cols)
             writer.writeheader()
@@ -752,7 +650,7 @@ def main():
     # move CSVs except summary into saved folder
     try:
         import glob
-        saved_folder = os.path.join(out_dir, f"saved_csvs")
+        saved_folder = os.path.join(out_dir, f"{system_id}_saved_csvs")
         os.makedirs(saved_folder, exist_ok=True)
 
         # move all CSVs in out_dir except the summary_csv
@@ -797,23 +695,16 @@ def main():
         print(f"Warning: cleaning up CSVs failed: {e}")
 
     try:
-        saved_ones = os.path.join(out_dir, 'saved_csvs')
-
-        if os.path.exists(saved_ones):
-            shutil.rmtree(saved_ones, ignore_errors=True)
-            print(f"Deleted folder (if it existed): {saved_ones}")
-        else:
-            print(f"Folder does not exist: {saved_ones}")
-        # # delete legacy folder named '_saved_ones' if present
-        # saved_ones = os.path.join(out_dir, '_saved_ones')
-        # if os.path.exists(saved_ones) and os.path.isdir(saved_ones):
-        #     try:
-        #         shutil.rmtree(saved_ones)
-        #         print(f"Deleted legacy folder: {saved_ones}")
-        #     except Exception as e:
-        #         print(f"Warning: failed to delete {saved_ones}: {e}")
+        # delete legacy folder named '_saved_ones' if present
+        saved_ones = os.path.join(out_dir, '_saved_ones')
+        if os.path.exists(saved_ones) and os.path.isdir(saved_ones):
+            try:
+                shutil.rmtree(saved_ones)
+                print(f"Deleted legacy folder: {saved_ones}")
+            except Exception as e:
+                print(f"Warning: failed to delete {saved_ones}: {e}")
     except Exception:
-        pass    
+        pass
 
 
 if __name__ == '__main__':

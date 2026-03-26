@@ -44,11 +44,10 @@ def query_system(system_id):
             s.inverter_model,
             (s.panels_capacity / 1000) AS panels_capacity,
             (s.inverters_capacity * s.inverters_count) AS inverters_capacity,
-            s.batteries_capacity AS current_battery_kwh,
+            s.batteries_capacity,
 
-            s.pv_produced_last_hour AS current_pv_kw,
+            s.pv_produced_last_hour,
             s.pv_produced_last_24hours,
-
 
             s.soc AS battery_soc,
             s.battery_model,

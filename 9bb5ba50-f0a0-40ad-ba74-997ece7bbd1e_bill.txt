@@ -1,0 +1,105 @@
+    Bill  Tax Certificate Tariff Guide
+
+    Print
+
+    ISLAMABAD ELECTRIC SUPPLY COMPANY IESCO GST No.
+                                                              26-00-2716-001-91
+
+    YOUR BETTER SERVICE - OUR PRIDE  ELECTRICITY CONSUMER BILL www.iesco.com.pk
+
+     CONNECTION DATE                CONNECTED LOAD   ED@             BILL MONTH      READING DATE    ISSUE DATE   DUE DATE
+                                     CURR MDI : 9
+
+                                16                   NA%               FEB 26             28 FEB 26  01 MAR 26    11 MAR 26
+
+       CONSUMER ID          TARIFF                            LOAD   OLD A/C NUMBER                     DIVISION     ISLAMABAD-I
+
+        1140389607         A-1b(03)T                           21    14141121057900                   SUB DIVISION    F-6 SECTOR
+
+       REFERENCE NO         LOCK AGE                       No of ACs   UN-BILL-AGE                    FEEDER NAME    075005 F-6.
+
+    14 14112 1057900 U                                         9                                   Web Generated Bill
+                            NET METERING CONNECTION
+                            DG Capacity (10 KW)                                               MONTH  UNITS    BILL  PAYMENT
+                            Say No To Corruption                                              Feb25   176    11877   11877
+     NAME & ADDRESS
+     MUHAMMAD AMIN          Pay your bill through                                             Mar25   -682   -17915    0
+    S/O MUHAMMAD KHAN       1Link-1Bill by using code                                         Apr25    0     -16773    0
+    H-NO.38 MARGALLA ROAD   111444 before Electricity
+    F-6/3 ISLAMABAD3        bill reference number                                             May25    0     -15534    0
+
+        MCO Date : 10-Aug-0018                                                                Jun25  -3689  -108372    0
+                                    یک ﻦﮬﺪﻨﯾا ےک 718ﺲٹﻧﻮﯾ ہﺪﺷ فﺮﺻ ےک 25 ﺮﺒﻤﺳد ںﯿﻣ ﻞﺑ اس ےکپآ  Jul25    0    -107168    0
+                                               ںﯿہ ﻞﻣﺎﺷ یھﺑ ےپرو 241 ےک (FPA)ﺖﻤﯿﻗ             Aug25    0    -105964    0
+
+        METER NO   PREVIOUS  PRESENT  MF             UNITS                STATUS              Sep25  -1063  -125924    0
+                   READING   READING
+     3-P I 3301539  139284    140447  1              1163                                     Oct25    0    -124720    0
+       I 3301539    30245     30763   1              518                                      Nov25    0    -123516    0
+       E 3301539    67407     69219   1              1133
+       E 3301539     1586      1586   1              Your bill is 0    loading ...            Dec25   718    -69633    0
+
+                                                                                              Jan26   2203   50785   50785
+
+    IESCO CHARGES    GOVT CHARGES    TOTAL CHARGES
+
+   UNITS CONSUMED     548   ELECTRICITY DUTY  0    ARREAR/AGE             0
+COST OF ELECTRICITY  25391       TV FEE       0      CURRENT BILL       37175
+     METER RENT        20         GST        5671  BILL ADJUSTMENT
+    Fix Charges     4141.76
+    SERVICE RENT               INCOME TAX            INSTALLEMENT
+     FUEL PRICE                                       SUBSIDIES           0
+     ADJUSTMENT      203.98    EXTRA TAX              TOTAL FPA          241
+   F.C SURCHARGE    1770.04   FURTHER TAX      PAYABLE WITHIN DUE DATE  37416
+
+                                                    L.P.SURCHARGE   1574   3148
+ QTR TARRIF ADJ/DMC  180.73  RETAILER STAX        Till 16-MAR-          After 16-MAR-
+                                                PAYABLE AFTER DUE DATE 26  26
+       TOTAL        31707.51                                        38990  40564
+
+        BILL CALCULATION
+                       GOP Tariff  x Units                                          GST ON FPA
+                                                     37.4332 X 30                   ED ON FPA                            37
+                                                                                  FURTHER TAX ON
+                                                    46.8500 X 518                      FPA        `
+                                                                                   S.TAX ON FPA
+                                                                                    IT ON FPA
+                                                   348.3675 X 10.5                  ET ON FPA
+                                        IMPORTANT NOTICE The load recorded as -----------------------------  --------------------------  For Complaints Please Use:     Amount Paid: 37416
+                                     export is more than the sanction load of DG  TOTAL TAXES ON                        ---                "NEPRA ASAAN APPROACH"  Payment Date: 10-Mar-26
+                                                                                                                         37                     (Mobile App)
+                                     facility, which is serious violation of Net       FPA
+                                     Metering Regulations. Get it regularize the
+                                   illegally extended load within 30 days to avoid
+                                                    disconnection.                                                                     For complaints dial: 118 /SMS:
+                Off
+                Peak   Peak MDI        Previous Present                               TOTAL                             5708                        8118
+    Export(kWh) 1133   0     16    Month Count =     2/3 / 3
+    Import(kWh) 1163   518   9     Remaining kWh (O)   0   0                        DEFFERRED
+    Net(kWh)     30    518         Remaining kWh (P)   0   0                          AMOUNT
+
+
+    Fuel Price Adjustment for Dec-25 @ 0.2841/KWH OUTSTANDING INST.
+                                                        AMOUNT
+    PROG. GST PAID F-Y                            PROG. IT PAID F-Y
+
+                          ISLAMABAD ELECTRIC SUPPLY COMPANY - ELECTRICITY    BILL NO : 1
+                                           CONSUMER BILL
+    www.iesco.com.pk
+
+                          YOUR BETTER SERVICE - OUR    CONSUMER
+                          PRIDE                           ID 1140389607 CNIC 9150901249675
+
+    ٹﻨﻤﺴﯿﻠپﯾر ﻦﯿﻓ ٹﻨﺸﯿﻔﯾا یﺟﺮﻧا ﻢﻈﻋاﺮﯾوز    Scan & Pay
+
+    BANK      زﺎﻏآ ﺎک امﺮگوﺮپ
+    STAMP
+            https://efan.gov.pk/    FEB 26 - 14 14112 1057900 - 000037416 - 11 MAR 26 - 000038990 -
+                                                               160326 - 6
+
+BILL MONTH  DUE DATE       REFERENCE NO        PAYABLE WITHIN DUE DATE    37416
+
+  FEB 26   11 MAR 26    14 14112 1057900 U     PAYABLE AFTER DUE DATE     Till 16-MAR-26 After 16-MAR-26
+                                                   38990      40564
+
+    Your bill is loading ...

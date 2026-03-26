@@ -21,8 +21,7 @@ def get_db_connection():
             password=db_config.get("password"),
             host=db_config.get("host"),
             port=db_config.get("port"),
-            database=db_config.get("dbname"),
-            connect_timeout=5
+            database=db_config.get("dbname")
         )
     
     return _connection_pool.getconn()
