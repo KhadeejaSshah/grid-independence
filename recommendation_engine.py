@@ -10,7 +10,7 @@ def load_config():
     with open("conf.yaml", "r") as f:
         return yaml.safe_load(f)
 
-def gather_system_data(system_id: str, out_dir: str = "output") -> Dict[str, Any]:
+def gather_system_data(system_id: str, out_dir: str = ".") -> Dict[str, Any]:
     """
     Gathers system data from Postgres (via query_system) and the
     pre-generated _summary.csv ONLY. No other CSVs are used.
@@ -102,6 +102,22 @@ def get_ai_recommendation(system_data: Dict[str, Any], target_independence: int)
     """
     print(f"\n[AI] {'='*20} STARTING RECOMMENDATION {'='*20}")
     print(f"[AI] Target Independence: {target_independence}%")
+
+    # Guard: require summary CSV data for accurate recommendations
+    if not system_data.get("summary_metrics"):
+        print("[AI] ERROR: No summary CSV data available. Run oldcombineall.py first.")
+        return {
+            "error": "Summary CSV not found. Please run the data pipeline (oldcombineall.py) for this system first.",
+            "data_missing": True,
+            "current_grid_independence": 0,
+            "projected_grid_independence": 0,
+            "solar": {"status": "Unknown", "action": "Run pipeline first", "current_kw": 0, "recommended_kw_100": 0, "production_gain_kwh": 0},
+            "battery": {"status": "Unknown", "action": "Run pipeline first", "current_kwh": 0, "recommended_kwh_100": 0, "backup_hours_gain": 0},
+            "inverter": {"status": "Unknown", "action": "Run pipeline first", "current_kw": 0, "recommended_kw_100": 0},
+            "grid_impact": {"current_daily_import_kwh": 0, "projected_daily_import_kwh": 0, "current_night_import_kwh": 0, "projected_night_import_kwh": 0, "annual_savings_kwh": 0},
+            "summary": "Cannot generate recommendation: summary CSV data is missing. Please run oldcombineall.py for this system first.",
+            "tiers": {}
+        }
 
     cfg = load_config()
     api_key = cfg.get("secrets", {}).get("GEMINI_API_KEY")
