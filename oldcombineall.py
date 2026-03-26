@@ -29,10 +29,10 @@ try:
 except Exception:
     load_power_report = None
 
-try:
-    import bill as bill_module
-except Exception:
-    bill_module = None
+# try:
+#     import bill as bill_module
+# except Exception:
+#     bill_module = None
 
 try:
     import energy_load
@@ -49,10 +49,11 @@ try:
 except Exception:
     toseeunits = None
 
-try:
-    import grid_power_api
-except Exception:
-    grid_power_api = None
+# try:
+#     # grid_power_api integration disabled
+#     grid_power_api = None
+# except Exception:
+#     grid_power_api = None
 
 
 def safe_get_system_details(system_id):
@@ -80,22 +81,22 @@ def safe_query_postgres(system_id):
         return {}
 
 
-def safe_query_scylla_energy(system_id, limit=100):
-    if query_system is None:
-        print("Warning: query_system module not available. Skipping Scylla energy query.")
-        return []
-    try:
-        rows = query_system.query_scylla(system_id, limit=limit)
-        return rows or []
-    except Exception as e:
-        print(f"Warning: query_system.query_scylla failed: {e}")
-        return []
+# def safe_query_scylla_energy(system_id, limit=100):
+#     if query_system is None:
+#         print("Warning: query_system module not available. Skipping Scylla energy query.")
+#         return []
+#     try:
+#         rows = query_system.query_scylla(system_id, limit=limit)
+#         return rows or []
+#     except Exception as e:
+#         print(f"Warning: query_system.query_scylla failed: {e}")
+#         return []
 
 
-def safe_bms_soc_summary(system_id, start_date, out_path):
-    # bms_soc integration disabled; return None as stub
-    print("Note: bms_soc integration is disabled in this build.")
-    return None
+# def safe_bms_soc_summary(system_id, start_date, out_path):
+#     # bms_soc integration disabled; return None as stub
+#     print("Note: bms_soc integration is disabled in this build.")
+#     return None
 
 
 def safe_load_power_summary(system_id, start_date, out_path):
@@ -126,32 +127,32 @@ def safe_load_power_summary(system_id, start_date, out_path):
         return None
 
 
-async def try_capture_bill(city, ref_number, out_pdf, out_text):
-    # run bill capture if module present and async functions available
-    try:
-        import asyncio
-        if bill_module is None:
-            print("Warning: bill module not available. Skipping bill capture.")
-            return None
-        # Check functions exist
-        if not hasattr(bill_module, 'capture_bill_pdf'):
-            print("Warning: bill.capture_bill_pdf not found. Skipping bill capture.")
-            return None
-        ok = await bill_module.capture_bill_pdf(city, ref_number, out_pdf)
-        if not ok:
-            print("Warning: bill.capture_bill_pdf returned False")
-            return None
-        # try to extract text
-        if hasattr(bill_module, 'extract_text_from_pdf'):
-            text = await bill_module.extract_text_from_pdf(out_pdf)
-            with open(out_text, 'w', encoding='utf-8') as f:
-                f.write(text)
-            return out_text
-        else:
-            return None
-    except Exception as e:
-        print(f"Warning: bill capture failed: {e}")
-        return None
+# async def try_capture_bill(city, ref_number, out_pdf, out_text):
+#     # run bill capture if module present and async functions available
+#     try:
+#         import asyncio
+#         if bill_module is None:
+#             print("Warning: bill module not available. Skipping bill capture.")
+#             return None
+#         # Check functions exist
+#         if not hasattr(bill_module, 'capture_bill_pdf'):
+#             print("Warning: bill.capture_bill_pdf not found. Skipping bill capture.")
+#             return None
+#         ok = await bill_module.capture_bill_pdf(city, ref_number, out_pdf)
+#         if not ok:
+#             print("Warning: bill.capture_bill_pdf returned False")
+#             return None
+#         # try to extract text
+#         if hasattr(bill_module, 'extract_text_from_pdf'):
+#             text = await bill_module.extract_text_from_pdf(out_pdf)
+#             with open(out_text, 'w', encoding='utf-8') as f:
+#                 f.write(text)
+#             return out_text
+#         else:
+#             return None
+#     except Exception as e:
+#         print(f"Warning: bill capture failed: {e}")
+#         return None
 
 
 def compile_monthly_from_raw(raw_path, monthly_out):
@@ -188,25 +189,25 @@ def read_conf_defaults(conf_path='conf.yaml'):
         return None, None, None
 
 
-def build_combined_row(system_id, postgres, api_data, scylla_energy_rows, bms_csv, load_csv, monthly_csv, bill_text_path, start, end):
+def build_combined_row(system_id, postgres, api_data, bms_csv, load_csv, monthly_csv, start, end):
     row = {
         'system_id': system_id,
         'start': start,
         'end': end,
         'postgres': json.dumps(postgres, default=str),
         'api_data': json.dumps(api_data, default=str),
-        'scylla_energy_count': len(scylla_energy_rows) if scylla_energy_rows is not None else 0,
+        # 'scylla_energy_count': len(scylla_energy_rows) if scylla_energy_rows is not None else 0,
         'bms_csv': bms_csv,
         'load_csv': load_csv,
         'monthly_csv': monthly_csv,
         'bill_text': None
     }
-    if bill_text_path and os.path.exists(bill_text_path):
-        try:
-            with open(bill_text_path, 'r', encoding='utf-8') as f:
-                row['bill_text'] = f.read()
-        except Exception:
-            row['bill_text'] = None
+    # if bill_text_path and os.path.exists(bill_text_path):
+    #     try:
+    #         with open(bill_text_path, 'r', encoding='utf-8') as f:
+    #             row['bill_text'] = f.read()
+    #     except Exception:
+    #         row['bill_text'] = None
     return row
 
 
@@ -263,8 +264,8 @@ def main():
         except Exception:
             city = None
 
-    # 3. Scylla energy
-    scylla_energy_rows = safe_query_scylla_energy(system_id, limit=500)
+    # # 3. Scylla energy
+    # scylla_energy_rows = safe_query_scylla_energy(system_id, limit=500)
 
     # 4. BMS SOC
     # bms_soc call disabled; skip and set bms_csv to None
@@ -314,77 +315,81 @@ def main():
         except Exception as e:
             print(f"Warning: toseeunits.run_tosee_units failed: {e}")
 
-    # 8.5 grid_power_api (optional) - get per-system grid summary CSV or values
-    grid_summary_csv = None
-    peak_power_import_value = None
-    avg_365_days_power = None
-    if grid_power_api is not None:
-        try:
-            # prefer a conventional function if present
-            if hasattr(grid_power_api, 'run_grid_power'):
-                res = grid_power_api.run_grid_power(system_id, start, end, out_dir)
-                if isinstance(res, dict):
-                    grid_summary_csv = res.get('csv') or res.get('grid_summary_csv')
-                elif isinstance(res, str):
-                    grid_summary_csv = res
-            elif hasattr(grid_power_api, 'get_grid_summary'):
-                res = grid_power_api.get_grid_summary(system_id, out_dir)
-                if isinstance(res, dict):
-                    peak_power_import_value = res.get('peak_import_power')
-                    avg_365_days_power = res.get('avg_365_days')
-                    grid_summary_csv = res.get('csv') or res.get('grid_summary_csv')
-            else:
-                # no callable API; assume it wrote grid_summary.csv into out_dir
-                possible = os.path.join(out_dir, 'grid_summary.csv')
-                if os.path.exists(possible):
-                    grid_summary_csv = possible
+    # # 8.5 grid_power_api (optional) - get per-system grid summary CSV or values
+    # grid_summary_csv = None
+    # peak_power_import_value = None
+    # avg_365_days_power = None
+    # if grid_power_api is not None:
+    #     try:
+    #         # prefer a conventional function if present
+    #         if hasattr(grid_power_api, 'run_grid_power'):
+    #             res = grid_power_api.run_grid_power(system_id, start, end, out_dir)
+    #             if isinstance(res, dict):
+    #                 grid_summary_csv = res.get('csv') or res.get('grid_summary_csv')
+    #             elif isinstance(res, str):
+    #                 grid_summary_csv = res
+    #         elif hasattr(grid_power_api, 'get_grid_summary'):
+    #             res = grid_power_api.get_grid_summary(system_id, out_dir)
+    #             if isinstance(res, dict):
+    #                 peak_power_import_value = res.get('peak_import_power')
+    #                 avg_365_days_power = res.get('avg_365_days')
+    #                 grid_summary_csv = res.get('csv') or res.get('grid_summary_csv')
+    #         else:
+    #             # no callable API; assume it wrote grid_summary.csv into out_dir
+    #             possible = os.path.join(out_dir, 'grid_summary.csv')
+    #             if os.path.exists(possible):
+    #                 grid_summary_csv = possible
 
-            # If we got a CSV path, try to read values from it
-            if grid_summary_csv and os.path.exists(grid_summary_csv):
-                try:
-                    import pandas as _pd
-                    gdf = _pd.read_csv(grid_summary_csv)
-                    # try to find row by system_id
-                    row = None
-                    if 'system_id' in gdf.columns:
-                        matched = gdf[gdf['system_id'] == system_id]
-                        if not matched.empty:
-                            row = matched.iloc[0]
-                        else:
-                            row = gdf.iloc[0]
-                    else:
-                        row = gdf.iloc[0]
+    #         # If we got a CSV path, try to read values from it
+    #         if grid_summary_csv and os.path.exists(grid_summary_csv):
+    #             try:
+    #                 import pandas as _pd
+    #                 gdf = _pd.read_csv(grid_summary_csv)
+    #                 # try to find row by system_id
+    #                 row = None
+    #                 if 'system_id' in gdf.columns:
+    #                     matched = gdf[gdf['system_id'] == system_id]
+    #                     if not matched.empty:
+    #                         row = matched.iloc[0]
+    #                     else:
+    #                         row = gdf.iloc[0]
+    #                 else:
+    #                     row = gdf.iloc[0]
 
-                    if 'peak_import_power' in row.index and peak_power_import_value is None:
-                        try:
-                            peak_power_import_value = float(row['peak_import_power'])
-                        except Exception:
-                            pass
-                    if 'avg_365_days' in row.index and avg_365_days_power is None:
-                        try:
-                            avg_365_days_power = float(row['avg_365_days'])
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
-        except Exception as e:
-            print(f"Warning: grid_power_api processing failed: {e}")
+    #                 if 'peak_import_power' in row.index and peak_power_import_value is None:
+    #                     try:
+    #                         peak_power_import_value = float(row['peak_import_power'])
+    #                     except Exception:
+    #                         pass
+    #                 if 'avg_365_days' in row.index and avg_365_days_power is None:
+    #                     try:
+    #                         avg_365_days_power = float(row['avg_365_days'])
+    #                     except Exception:
+    #                         pass
+    #             except Exception:
+    #                 pass
+    #     except Exception as e:
+    #         print(f"Warning: grid_power_api processing failed: {e}")
+    # # grid_power_api disabled for this run; no grid CSV to read
+    # grid_summary_csv = None
+    # peak_power_import_value = None
+    # avg_365_days_power = None
 
-    # 9. Bill capture (optional)
-    bill_text_path = None
-    if not args.no_bill and bill_module is not None and ref_number and city:
-        try:
-            import asyncio
-            pdf_path = os.path.join(out_dir, f"{system_id}_bill.pdf")
-            txt_path = os.path.join(out_dir, f"{system_id}_bill.txt")
-            asyncio.run(try_capture_bill(city, ref_number, pdf_path, txt_path))
-            if os.path.exists(txt_path):
-                bill_text_path = txt_path
-        except Exception as e:
-            print(f"Warning: running bill capture failed: {e}")
+    # # 9. Bill capture (optional)
+    # bill_text_path = None
+    # if not args.no_bill and bill_module is not None and ref_number and city:
+    #     try:
+    #         import asyncio
+    #         pdf_path = os.path.join(out_dir, f"{system_id}_bill.pdf")
+    #         txt_path = os.path.join(out_dir, f"{system_id}_bill.txt")
+    #         asyncio.run(try_capture_bill(city, ref_number, pdf_path, txt_path))
+    #         if os.path.exists(txt_path):
+    #             bill_text_path = txt_path
+    #     except Exception as e:
+    #         print(f"Warning: running bill capture failed: {e}")
 
     # 10. Build combined row and write final CSV named as system id
-    combined = build_combined_row(system_id, postgres, api_data, scylla_energy_rows, bms_csv, load_csv, monthly_from_raw, bill_text_path, start, end)
+    combined = build_combined_row(system_id, postgres, api_data, bms_csv, load_csv, monthly_from_raw, start, end)
     # add additional file paths to row
     combined['raw_energy_csv'] = raw_csv
     combined['daily_energy_csv'] = daily_energy_csv
@@ -392,7 +397,7 @@ def main():
     combined['sun_hours_csv'] = sun_hours_csv
     combined['tosee_daily'] = tosee_daily
     combined['tosee_monthly'] = tosee_monthly
-    combined['grid_summary_csv'] = grid_summary_csv
+    # combined['grid_summary_csv'] = grid_summary_csv
 
     final_csv = os.path.join(out_dir, f"{system_id}.csv")
     fieldnames = list(combined.keys())
@@ -408,6 +413,8 @@ def main():
         'system_id': system_id,
         'daily_avg_import': None,
         'daily_peak_import': None,
+        'day_avg_import': None,
+        'day_peak_import': None,
         'night_avg_import': None,
         'night_peak_import': None,
         'current_pv': None,
@@ -424,15 +431,8 @@ def main():
         'avg_365_days_power': None,
         'avg_total_load': None,
         'avg_night_fraction': None,
-        # grid power API derived fields
-        'avg_daily_import_kwh_grid': None,
-        'avg_day_import_kwh_grid': None,
-        'avg_night_import_kwh_grid': None,
-        'peak_daily_import_kwh_grid': None,
-        'peak_day_import_kwh_grid': None,
-        'peak_night_import_kwh_grid': None,
-        'peak_import_power_kw_grid': None,
-        'avg_365_days_grid': None,
+        # toseeunits import-export fields (day vs night)
+        # 'day_avg_import' and 'day_peak_import' populated below
         'actual_system_age': None,
         'inverter_capacity': None
     }
@@ -455,74 +455,83 @@ def main():
                 row = ie_df.iloc[0]
                 summary['daily_avg_import'] = float(row.get('daily_avg_import', summary['daily_avg_import']) or summary['daily_avg_import'])
                 summary['daily_peak_import'] = float(row.get('daily_peak_import', summary['daily_peak_import']) or summary['daily_peak_import'])
+                # daytime fields added by toseeunits
+                try:
+                    summary['day_avg_import'] = float(row.get('day_avg_import', summary['day_avg_import']) or summary['day_avg_import'])
+                except Exception:
+                    pass
+                try:
+                    summary['day_peak_import'] = float(row.get('day_peak_import', summary['day_peak_import']) or summary['day_peak_import'])
+                except Exception:
+                    pass
                 summary['night_avg_import'] = float(row.get('night_avg_import', summary['night_avg_import']) or summary['night_avg_import'])
                 summary['night_peak_import'] = float(row.get('night_peak_import', summary['night_peak_import']) or summary['night_peak_import'])
     except Exception as e:
         print(f"Warning: reading import-export.csv failed: {e}")
 
-    # 1.5) grid summary values (if available)
-    try:
-        # if grid_summary_csv not provided or missing, search common locations
-        candidates = []
-        if grid_summary_csv:
-            candidates.append(grid_summary_csv)
-        candidates.extend([
-            os.path.join(out_dir, 'grid_summary.csv'),
-            os.path.join(out_dir, f"{system_id}_grid_summary.csv"),
-            'grid_summary.csv',
-            f"{system_id}_grid_summary.csv",
-            os.path.join('.', 'grid_summary.csv')
-        ])
-        found = None
-        for c in candidates:
-            try:
-                if c and os.path.exists(c):
-                    found = c
-                    break
-            except Exception:
-                continue
-        if found:
-            grid_summary_csv = found
-        if grid_summary_csv and os.path.exists(grid_summary_csv):
-            import pandas as _pd
-            gdf = _pd.read_csv(grid_summary_csv)
-            row = None
-            if 'system_id' in gdf.columns:
-                matched = gdf[gdf['system_id'] == system_id]
-                if not matched.empty:
-                    row = matched.iloc[0]
-                else:
-                    row = gdf.iloc[0]
-            else:
-                row = gdf.iloc[0]
+    # # 1.5) grid summary values (if available)
+    # try:
+    #     # if grid_summary_csv not provided or missing, search common locations
+    #     candidates = []
+    #     if grid_summary_csv:
+    #         candidates.append(grid_summary_csv)
+    #     candidates.extend([
+    #         os.path.join(out_dir, 'grid_summary.csv'),
+    #         os.path.join(out_dir, f"{system_id}_grid_summary.csv"),
+    #         'grid_summary.csv',
+    #         f"{system_id}_grid_summary.csv",
+    #         os.path.join('.', 'grid_summary.csv')
+    #     ])
+    #     found = None
+    #     for c in candidates:
+    #         try:
+    #             if c and os.path.exists(c):
+    #                 found = c
+    #                 break
+    #         except Exception:
+    #             continue
+    #     if found:
+    #         grid_summary_csv = found
+    #     if grid_summary_csv and os.path.exists(grid_summary_csv):
+    #         import pandas as _pd
+    #         gdf = _pd.read_csv(grid_summary_csv)
+    #         row = None
+    #         if 'system_id' in gdf.columns:
+    #             matched = gdf[gdf['system_id'] == system_id]
+    #             if not matched.empty:
+    #                 row = matched.iloc[0]
+    #             else:
+    #                 row = gdf.iloc[0]
+    #         else:
+    #             row = gdf.iloc[0]
 
-            # map values (support both exact and legacy names)
-            def get_float(keys):
-                for k in keys:
-                    try:
-                        if k in row.index and row.get(k) is not None and str(row.get(k)) != 'nan':
-                            return float(row.get(k))
-                    except Exception:
-                        continue
-                return None
+            # # map values (support both exact and legacy names)
+            # def get_float(keys):
+            #     for k in keys:
+            #         try:
+            #             if k in row.index and row.get(k) is not None and str(row.get(k)) != 'nan':
+            #                 return float(row.get(k))
+            #         except Exception:
+            #             continue
+            #     return None
 
-            # legacy peak/import
-            if summary.get('peak_power_import_value') is None:
-                summary['peak_power_import_value'] = get_float(['peak_import_power','peak_import_power_kw','peak_import_power_kw_grid'])
-            if summary.get('avg_365_days_power') is None:
-                summary['avg_365_days_power'] = get_float(['avg_365_days','avg_365_days_grid'])
+            # # legacy peak/import
+            # if summary.get('peak_power_import_value') is None:
+            #     summary['peak_power_import_value'] = get_float(['peak_import_power','peak_import_power_kw','peak_import_power_kw_grid'])
+            # if summary.get('avg_365_days_power') is None:
+            #     summary['avg_365_days_power'] = get_float(['avg_365_days','avg_365_days_grid'])
 
-            # grid-derived fields
-            summary['avg_daily_import_kwh_grid'] = get_float(['avg_daily_import_kwh','avg_daily_import_kwh_grid','avg_daily_import'])
-            summary['avg_day_import_kwh_grid'] = get_float(['avg_day_import_kwh','avg_day_import_kwh_grid','avg_day_import'])
-            summary['avg_night_import_kwh_grid'] = get_float(['avg_night_import_kwh','avg_night_import_kwh_grid','avg_night_import'])
-            summary['peak_daily_import_kwh_grid'] = get_float(['peak_daily_import_kwh','peak_daily_import_kwh_grid','peak_daily_import'])
-            summary['peak_day_import_kwh_grid'] = get_float(['peak_day_import_kwh','peak_day_import_kwh_grid','peak_day_import'])
-            summary['peak_night_import_kwh_grid'] = get_float(['peak_night_import_kwh','peak_night_import_kwh_grid','peak_night_import'])
-            summary['peak_import_power_kw_grid'] = get_float(['peak_import_power_kw','peak_import_power_kw_grid','peak_import_power','peak_import_power_grid'])
-            summary['avg_365_days_grid'] = get_float(['avg_365_days','avg_365_days_grid'])
-    except Exception as e:
-        print(f"Warning: reading grid_summary.csv failed: {e}")
+            # # grid-derived fields
+            # summary['avg_daily_import_kwh_grid'] = get_float(['avg_daily_import_kwh','avg_daily_import_kwh_grid','avg_daily_import'])
+            # summary['avg_day_import_kwh_grid'] = get_float(['avg_day_import_kwh','avg_day_import_kwh_grid','avg_day_import'])
+            # summary['avg_night_import_kwh_grid'] = get_float(['avg_night_import_kwh','avg_night_import_kwh_grid','avg_night_import'])
+            # summary['peak_daily_import_kwh_grid'] = get_float(['peak_daily_import_kwh','peak_daily_import_kwh_grid','peak_daily_import'])
+            # summary['peak_day_import_kwh_grid'] = get_float(['peak_day_import_kwh','peak_day_import_kwh_grid','peak_day_import'])
+            # summary['peak_night_import_kwh_grid'] = get_float(['peak_night_import_kwh','peak_night_import_kwh_grid','peak_night_import'])
+            # summary['peak_import_power_kw_grid'] = get_float(['peak_import_power_kw','peak_import_power_kw_grid','peak_import_power','peak_import_power_grid'])
+            # summary['avg_365_days_grid'] = get_float(['avg_365_days','avg_365_days_grid'])
+    # except Exception as e:
+    #     print(f"Warning: reading grid_summary.csv failed: {e}")
 
     # 2) sun hours from compilerawdata result or CSV
     try:
@@ -632,7 +641,8 @@ def main():
             summary['current_pv_kw'] = float(postgres.get('pv_produced_last_hour'))
             summary['current_pv'] = summary['current_pv_kw']
             summary['actual_system_age'] = None
-            summary['inverter_capacity'] = None
+            summary['inverter_capacity'] = postgres.get('inverters_capacity')
+            summary['current_battery'] = postgres.get('batteries_capacity')
             try:
                 live_date_raw = postgres.get('live_date')
                 if live_date_raw:
@@ -740,7 +750,7 @@ def main():
     try:
         summary_csv = os.path.join(out_dir, f"{system_id}_summary.csv")
         # ensure deterministic column order
-        cols = ['system_id','daily_avg_import','daily_peak_import','night_avg_import','night_peak_import','current_pv','current_battery','current_battery_power','current_battery_soc','new_battery_design_year','battery_dod','battery_efficiency','sun_hours_per_day','location_yield','avg_total_load','avg_night_fraction','avg_daily_import_kwh_grid','avg_day_import_kwh_grid','avg_night_import_kwh_grid','peak_daily_import_kwh_grid','peak_day_import_kwh_grid','peak_night_import_kwh_grid','peak_import_power_kw_grid','avg_365_days_grid','actual_system_age','inverter_capacity']
+        cols = ['system_id','daily_avg_import','daily_peak_import','day_avg_import','day_peak_import','night_avg_import','night_peak_import','current_pv','current_battery','current_battery_power','current_battery_soc','new_battery_design_year','battery_dod','battery_efficiency','sun_hours_per_day','location_yield','avg_total_load','avg_night_fraction','actual_system_age','inverter_capacity']
         with open(summary_csv, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=cols)
             writer.writeheader()
@@ -774,7 +784,6 @@ def main():
             combined.get('sun_hours_csv'),
             combined.get('tosee_daily'),
             combined.get('tosee_monthly'),
-            grid_summary_csv,
             bms_csv,
             load_csv
         ]
