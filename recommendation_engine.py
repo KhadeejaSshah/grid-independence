@@ -10,7 +10,7 @@ def load_config():
     with open("conf.yaml", "r") as f:
         return yaml.safe_load(f)
 
-def gather_system_data(system_id: str, out_dir: str = ".") -> Dict[str, Any]:
+def gather_system_data(system_id: str, out_dir: str = "csv_data") -> Dict[str, Any]:
     """
     Gathers system data from Postgres (via query_system) and the
     pre-generated _summary.csv ONLY. No other CSVs are used.
