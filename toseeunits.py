@@ -702,7 +702,12 @@ def run_tosee_units(system_id, start_date, end_date, out_dir='.'):
             hourly_df = pd.DataFrame(hourly_list)
 
             if not hourly_df.empty:
-                hourly_df["datetime"] = hourly_df["time"].apply(unix_to_datetime)
+                # hourly_df["datetime"] = hourly_df["time"].apply(unix_to_datetime)
+                # hourly_df["date"] = hourly_df["datetime"].dt.date
+
+                                # first parse as UTC then add +5h to get Pakistan local time
+                hourly_df["datetime_utc"] = hourly_df["time"].apply(lambda ms: datetime.utcfromtimestamp(ms / 1000))
+                hourly_df["datetime"] = hourly_df["datetime_utc"] + timedelta(hours=0)
                 hourly_df["date"] = hourly_df["datetime"].dt.date
 
                 # Map sunrise/sunset per day

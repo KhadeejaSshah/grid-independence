@@ -52,7 +52,7 @@ def fetch_data(query, variables):
 #     return datetime.utcfromtimestamp(ms / 1000)
 def unix_to_datetime(ms):
     # Convert UTC -> Pakistan Time (+5 hours)
-    return datetime.utcfromtimestamp(ms / 1000) + timedelta(hours=5)
+    return datetime.utcfromtimestamp(ms / 1000) + timedelta(hours=0)
 
 # --- Time range and execution moved into function for reuse ---
 def run_energy_load(system_id, start_date, end_date, out_dir='.'):
@@ -84,6 +84,40 @@ def run_energy_load(system_id, start_date, end_date, out_dir='.'):
     energy_list = energy_data["systemHourlyEnergyStats"]["values"]
     energy_df = pd.DataFrame(energy_list)
     energy_df["datetime"] = energy_df["time"].apply(unix_to_datetime)
+
+    # --- PREPROCESS: remove duplicate hourly rows ---
+    # Some systems produce two rows per hour: one at HH:00:00 (often zero) and one at HH:00:01 (the correct value).
+    # For each hour keep the last non-zero row if available, otherwise keep one zero row.
+    energy_df["hour"] = energy_df["datetime"].dt.floor("H")
+
+    def is_all_zero(row):
+        # Consider common energy fields; default to 0 when absent
+        return (
+            (row.get("load", 0) == 0) and
+            (row.get("pvProduced", 0) == 0) and
+            (row.get("pvExported", 0) == 0) and
+            (row.get("gridConsumed", 0) == 0)
+        )
+
+    cleaned_rows = []
+    for hour, group in energy_df.groupby("hour"):
+        if len(group) == 1:
+            cleaned_rows.append(group.iloc[0])
+            continue
+
+        zero_rows = group[group.apply(is_all_zero, axis=1)]
+        non_zero_rows = group[~group.apply(is_all_zero, axis=1)]
+
+        if not non_zero_rows.empty:
+            # keep last valid row (usually HH:00:01)
+            cleaned_rows.append(non_zero_rows.sort_values("datetime").iloc[-1])
+        else:
+            # all-zero → keep the first one
+            cleaned_rows.append(zero_rows.iloc[0])
+
+    energy_df = pd.DataFrame(cleaned_rows).sort_values("datetime").reset_index(drop=True)
+
+    # recompute date after cleaning
     energy_df["date"] = energy_df["datetime"].dt.date
 
     # --- Calculate sunrise/sunset for each day using Astral ---
@@ -95,6 +129,13 @@ def run_energy_load(system_id, start_date, end_date, out_dir='.'):
         try:
             sr = sunrise(location.observer, date=day)
             ss = sunset(location.observer, date=day)
+            # Astral may return UTC or naive datetimes; ensure times are Pakistan local time by adding +5h
+            try:
+                sr = sr + timedelta(hours=5)
+                ss = ss + timedelta(hours=5)
+            except Exception:
+                # if addition fails, leave as-is
+                pass
             sunrise_dict[day] = sr.time()
             sunset_dict[day] = ss.time()
         except Exception as e:
@@ -136,13 +177,21 @@ def run_energy_load(system_id, start_date, end_date, out_dir='.'):
         'daily_csv': daily_csv
     }
 
-
+import yaml
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--system-id', required=True)
-    parser.add_argument('--start', default='2024-01-01')
-    parser.add_argument('--end', default=datetime.utcnow().strftime('%Y-%m-%d'))
-    parser.add_argument('--out-dir', default='.')
-    args = parser.parse_args()
-    run_energy_load(args.system_id, args.start, args.end, args.out_dir)
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('--system-id', required=True)
+    # parser.add_argument('--start', default='2024-01-01')
+    # parser.add_argument('--end', default=datetime.utcnow().strftime('%Y-%m-%d'))
+    # parser.add_argument('--out-dir', default='.')
+    # args = parser.parse_args()
+    with open("conf.yaml","r") as f:
+        config = yaml.safe_load(f)
+
+    defaults = config.get("defaults",{})
+    system_id = defaults.get("system_id")
+    start_date = defaults.get("start_date")
+    end_date = defaults.get("end_date")
+    out_dir = "."
+    run_energy_load(system_id, start_date, end_date, out_dir)
