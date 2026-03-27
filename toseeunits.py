@@ -514,11 +514,9 @@
 # #     args = parser.parse_args()
 # #     run_tosee_units(args.system_id, args.start, args.end, args.out_dir)
 
-
-
 import requests
 import pandas as pd
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timedelta
 import os
 import csv
 import yaml
@@ -602,6 +600,12 @@ def fetch_data(query, variables):
     return json_data.get("data")
 
 def unix_to_datetime(ms):
+    # Convert UTC -> Pakistan Time (+5 hours)
+    return datetime.utcfromtimestamp(ms / 1000) + timedelta(hours=5)
+
+def unix_to_datetime_utc(ms):
+    # Return datetime from unix ms without applying timezone offset.
+    # Use for sunrise/sunset which are already in Asia timezone.
     return datetime.utcfromtimestamp(ms / 1000)
 
 def run_tosee_units(system_id, start_date, end_date, out_dir='.'):
@@ -647,15 +651,18 @@ def run_tosee_units(system_id, start_date, end_date, out_dir='.'):
     # Convert timestamps
     weather_df["date"] = weather_df["time"].apply(unix_to_datetime)
     if "sunrise" in weather_df.columns:
-        weather_df["sunrise"] = weather_df["sunrise"].apply(unix_to_datetime)
+        # sunrise timestamps are already in Asia timezone — do not apply +5 offset
+        weather_df["sunrise"] = weather_df["sunrise"].apply(unix_to_datetime_utc)
     if "sunset" in weather_df.columns:
-        weather_df["sunset"] = weather_df["sunset"].apply(unix_to_datetime)
+        # sunset timestamps are already in Asia timezone — do not apply +5 offset
+        weather_df["sunset"] = weather_df["sunset"].apply(unix_to_datetime_utc)
     weather_df["day"] = weather_df["date"].dt.date
+
 
     energy_df["date"] = energy_df["time"].apply(unix_to_datetime)
     energy_df["day"] = energy_df["date"].dt.date
 
-    # Merge daily
+    # Merge daily data on date
     daily_df = pd.merge(energy_df, weather_df, on="date", how="left")
 
     # Rename columns
@@ -693,6 +700,7 @@ def run_tosee_units(system_id, start_date, end_date, out_dir='.'):
         try:
             hourly_list = hourly_data.get("systemHourlyEnergyStats", {}).get("values", [])
             hourly_df = pd.DataFrame(hourly_list)
+
             if not hourly_df.empty:
                 hourly_df["datetime"] = hourly_df["time"].apply(unix_to_datetime)
                 hourly_df["date"] = hourly_df["datetime"].dt.date
@@ -726,8 +734,8 @@ def run_tosee_units(system_id, start_date, end_date, out_dir='.'):
                                 sunrise_dict[d] = dt_time(6,0,0)
                                 sunset_dict[d] = dt_time(18,0,0)
                         else:
-                            sunrise_dict[d] = dt_time(6,0,0)
-                            sunset_dict[d] = dt_time(18,0,0)
+                            sunrise_dict[d] = dt_time(6, 0, 0)
+                            sunset_dict[d] = dt_time(18, 0, 0)
 
                 hourly_df['sunrise'] = hourly_df['date'].map(sunrise_dict)
                 hourly_df['sunset'] = hourly_df['date'].map(sunset_dict)

@@ -48,8 +48,11 @@ def fetch_data(query, variables):
         return None
     return json_data.get("data")
 
+# def unix_to_datetime(ms):
+#     return datetime.utcfromtimestamp(ms / 1000)
 def unix_to_datetime(ms):
-    return datetime.utcfromtimestamp(ms / 1000)
+    # Convert UTC -> Pakistan Time (+5 hours)
+    return datetime.utcfromtimestamp(ms / 1000) + timedelta(hours=5)
 
 # --- Time range and execution moved into function for reuse ---
 def run_energy_load(system_id, start_date, end_date, out_dir='.'):
